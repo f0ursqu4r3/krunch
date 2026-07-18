@@ -25,7 +25,16 @@ impl OpenAiCompatibleAgent {
     }
 
     fn endpoint(&self) -> String {
-        format!("{}/chat/completions", self.base_url.trim_end_matches('/'))
+        let trimmed = self.base_url.trim_end_matches('/');
+        // If the user gave only a host (no path, e.g. `http://127.0.0.1:1234`),
+        // assume the conventional `/v1` prefix (LM Studio, vLLM, etc.). If they
+        // already included a path (`.../v1`), append only the method.
+        let after_scheme = trimmed.splitn(2, "://").nth(1).unwrap_or(trimmed);
+        if after_scheme.contains('/') {
+            format!("{trimmed}/chat/completions")
+        } else {
+            format!("{trimmed}/v1/chat/completions")
+        }
     }
 
     fn body(&self, req: &CompletionRequest) -> Value {
@@ -104,9 +113,20 @@ mod tests {
     }
 
     #[test]
-    fn endpoint_appends_chat_completions() {
+    fn endpoint_respects_an_explicit_version_path() {
         let a = OpenAiCompatibleAgent::new("https://api.openai.com/v1/", "k");
         assert_eq!(a.endpoint(), "https://api.openai.com/v1/chat/completions");
+        let b = OpenAiCompatibleAgent::new("http://localhost:11434/v1", "k");
+        assert_eq!(b.endpoint(), "http://localhost:11434/v1/chat/completions");
+    }
+
+    #[test]
+    fn endpoint_adds_v1_when_only_a_host_is_given() {
+        // LM Studio / vLLM default: user pastes just host:port.
+        let a = OpenAiCompatibleAgent::new("http://127.0.0.1:1234", "k");
+        assert_eq!(a.endpoint(), "http://127.0.0.1:1234/v1/chat/completions");
+        let b = OpenAiCompatibleAgent::new("http://127.0.0.1:1234/", "k");
+        assert_eq!(b.endpoint(), "http://127.0.0.1:1234/v1/chat/completions");
     }
 
     #[test]
