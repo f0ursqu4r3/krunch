@@ -1,112 +1,112 @@
-# Plan Review Log: krunch — jury-room LLM deliberation engine
-Act 1 (grill) complete — plan locked with the user. MAX_ROUNDS=5 (Act-2 review-round cap; distinct from krunch's in-app deliberation cap).
-Reviewer model: gpt-5.6-terra (config default) — codex-cli 0.144.0. THREAD_ID=019f72be-4c6f-7993-b579-f9a576bbfdff.
+# Plan Review Log: krunch UI re-imagining — "Mission Control" terminal cockpit
+Act 1 (grill) complete — plan locked with the user. MAX_ROUNDS=5.
+Reviewer model: gpt-5.6-terra (config default) — codex-cli 0.144.0.
 
 ## Round 1 — Codex
 Material problems:
 
-- `PLAN.md` says default `MAX_ROUNDS=8`, while `PLAN-REVIEW-LOG.md` locks it at 5. Fix: define one authoritative default and persist it in the session snapshot.
-- The generic endpoint model can send a stored API key to an attacker-controlled `base_url`. Fix: bind credentials to a validated provider/host and require explicit confirmation before changing endpoint hosts.
-- Raw panelist output is injected into mediator context, enabling prompt injection and forged "rulings." Fix: delimit outputs as untrusted data and instruct the mediator to treat them only as evidence.
-- User problem/Q&A are also untrusted prompt material with no isolation strategy. Fix: place them in clearly delimited data blocks and keep control instructions exclusively in system/developer messages.
-- No response-size, context-size, or output-token limits are specified; one seat can exhaust memory, disk, context, or spend. Fix: enforce per-seat byte/token/time budgets and deterministic truncation recorded in the transcript.
-- "Mediator context grows" conflicts with bounded-context safety and will eventually overflow on long answers. Fix: retain a bounded structured ledger plus capped excerpts, not all prior summaries/raw text.
-- `abandon` has no cancellation semantics, so requests may continue spending money and emit stale tokens afterward. Fix: propagate cancellation tokens to every task/HTTP stream and reject post-cancel events.
-- Event tags omit `session_id` and sequence numbers, allowing stale/out-of-order events to corrupt a new or reopened view. Fix: include session UUID, round, seat, and monotonic event sequence on every event.
-- "Atomic round" is not actually defined transactionally: partial streamed output, retries, and UI events can diverge from SQLite after a crash. Fix: persist round-start/status and append outputs durably, then atomically finalize the round.
-- A crash can leave a session permanently marked Running despite "no mid-run resume." Fix: mark unfinished sessions `Interrupted` during startup recovery and expose them read-only.
-- Timeout behavior is mentioned but neither timeout values nor retry classification/backoff are defined. Fix: specify connect/idle/total deadlines, exponential jittered retries, and a strict transient-error allowlist.
-- The mediator's malformed or missing ruling has no state-transition rule. Fix: validate against a versioned schema and fail safely to a recorded mediator-error/halted state.
-- Consensus is entirely subjective despite collecting structured stances, so the mediator can declare consensus with contradictory evidence. Fix: require deterministic minimum agreement/confidence checks before accepting `CONSENSUS`.
-- `agree_with[]` is unvalidated and can reference nonexistent/self/duplicate seats. Fix: validate UUID references against the round roster and record invalid claims as malformed stance fields.
-- Batched mode has no machine-readable "interrupt now" field, yet says the mediator decides when to interrupt. Fix: add a validated `request_user_input: bool` field distinct from `questions_for_user`.
-- Autonomous-mode questions are neither answered nor converted into explicit assumptions by a defined rule. Fix: require the mediator to emit a concrete assumption for every suppressed question.
-- Keychain storage alone does not prevent a compromised webview from invoking privileged Rust commands or rendering hostile output. Fix: lock Tauri capabilities to required commands, use a strict CSP, and sanitize all rendered Markdown/HTML.
-- The plan stores potentially sensitive problems and model outputs as plaintext SQLite without a privacy policy, retention control, or filesystem-permission requirement. Fix: document plaintext-at-rest behavior and add encrypted storage or an explicit opt-in/retention control.
-- "Reproducible" roster snapshots cannot reproduce remote model behavior without provider/model revision and full generation parameters. Fix: call these audit snapshots and store endpoint, model revision where available, and all sampling parameters.
-- Live token streaming acknowledges backpressure but leaves it unresolved, making UI freezes and unbounded queues likely. Fix: use bounded per-session channels with timed token coalescing and explicit overflow handling.
-- The provider abstraction hides essential incompatibilities: OpenAI-compatible servers vary in SSE framing, auth, system-message support, and finish reasons. Fix: define a normalized capability contract and test adapters against a compatibility matrix.
-- The final Markdown export can contain hostile provider/user content and potentially become executable HTML if rendered later. Fix: escape exported fields by default and render transcript Markdown with sanitization.
-- There is no test/fixture plan for malformed SSE, cancellation, retries, crash recovery, schema migration, or adversarial model output. Fix: add adapter contract tests and state-machine persistence tests before UI implementation.
+- Anthropic input usage is not parsed: `message_start.usage.input_tokens` is ignored, so "real input tokens" is false for Anthropic. Fix: parse+retain message_start input usage, preserve unknown-vs-zero, add fixtures.
+- Transient `SeatUsage` can't support telemetry after drops/reload/recovery: no usage record or read API in SQLite. Fix: persist usage per accepted attempt + read model, or scope as explicitly transient.
+- `SeatUsage { session, round, seat }` not idempotent: retries/replays double-count. Fix: include `attempt` and dedupe by attempt, count accepted only.
+- TTFT/tok-s can't be truthful from client: no engine timestamps; client receipt includes queue/render delay. Fix: emit engine timing or label client calc approximate.
+- Live transcript already lossy under load: `StreamSink` drops token events when channel full; no hydration API despite "reload authoritative text" claim. Fix: hydration command, or drop the claim + coalesce.
+- Convergence meter has no reliable alignment signal: frontend stance events carry only prose+confidence; consensus is `agree_with`+backend guard. Fix: emit backend cluster/agreement metrics; don't infer from stance strings.
+- Finalization pass invalidates round counter: engine emits finalization as round_index+1 → can display `09/08`. Fix: round-kind field, render finalization separately.
+- Client pricing fabricates cost for custom OpenAI-compatible endpoints: name match insufficient. Fix: key prices by canonical provider endpoint+revision, else `—`.
+- Raw EngineEvent rail overwhelms renderer/memory: token events too numerous + duplicate transcript. Fix: bounded batched lifecycle-log schema, exclude token events.
+- Command palette not implementable as written: no shadcn-vue `Command` in repo; reka Listbox alone isn't a palette. Fix: specify exact primitive/path or build from Dialog + combobox.
+- Shortcut handling unsafe: excluding only input/textarea misses contenteditable, select, IME, modifiers, phase-invalid actions. Fix: centralize bindings with composition/modifier/focus/phase guards.
+- Reduced motion ≠ contrast fix: static scanlines/glow still cut contrast; effects preference unresolved. Fix: measurable contrast targets + persistent effects/contrast toggle.
+- 940×640 min window won't fit 6-seat grid + mediator + rail + palette + overlay. Fix: compact breakpoints, pane collapse/scroll, test at min + 200% zoom.
+- Verification plan misses risky paths: seeds don't test Rust parsing, event loss/replay, migrations, hotkeys, price. Fix: Rust parser/engine/migration tests + frontend store tests.
+- Scope/assets unresolved: feature cuts + display font license/source/bundle still open. Fix: lock before implementation as acceptance criteria.
 
 VERDICT: REVISE
 
 ### Claude's response
-Strong round — 24 of 25 findings accepted and folded into `PLAN.md`. One reframed rather than fixed as a bug:
-- **MAX_ROUNDS "inconsistency" (8 vs 5):** these are two different counters. `5` in this log is the Act-2 Codex review-round cap (skill template). `8` is krunch's in-app deliberation cap. Codex conflated them — fair, the naming collided. Resolved by renaming the app setting to **`max_rounds` (deliberation)** and disambiguating in both files; default stays 8 and is persisted in the audit snapshot.
-
-Accepted and added to the plan:
-- **Security (new section):** base_url host allowlist + explicit confirmation on endpoint-host change (SSRF/key-exfil); prompt-injection isolation — panelist output and user problem/Q&A wrapped in delimited untrusted-data blocks, all control instructions kept in system messages, mediator instructed to treat panelist text as evidence only; Tauri capability lockdown + strict CSP + sanitized Markdown rendering; plaintext-at-rest documented with restrictive file perms (encryption = v2 opt-in).
-- **Budgets & backpressure:** per-seat connect/idle/total deadlines, max response bytes + output-token cap, deterministic truncation recorded in transcript; bounded per-session channels with timed token coalescing + explicit overflow handling.
-- **Mediator context:** replaced unbounded "growing summary" with a bounded structured ledger + capped per-round excerpts.
-- **Robustness:** cancellation tokens on abandon (reject post-cancel events); events carry session UUID + round + seat + monotonic sequence; transactional round (persist round-start/status → append outputs durably → atomic finalize); startup recovery marks unfinished sessions `Interrupted`; timeout/retry spec (deadlines + exponential jittered backoff + transient allowlist).
-- **Schema/validation:** versioned stance + ruling schemas; malformed/missing mediator ruling → recorded `MediatorError`/`Halted`; `agree_with[]` validated against round roster seat ids; deterministic minimum agreement/confidence guard before `CONSENSUS` is accepted (mediator still arbiter, but can't override contradictory evidence into consensus); `request_user_input: bool` added for batched mode; autonomous mode must emit a concrete recorded assumption for every suppressed question.
-- **Adapters:** normalized capability contract + compatibility matrix; adapter contract tests + state-machine/persistence tests + adversarial fixtures added as a testing section, before UI work.
-- **Audit snapshot:** renamed from "reproducible"; stores endpoint, model revision where available, and all sampling parameters.
-
-## Round 2 — Codex
-The Round 1 findings are substantively addressed; the `max_rounds` distinction is now clear. Remaining material gaps:
-
-- Concurrent `start_deliberation`, `answer_questions`, or `abandon` commands can still race and launch duplicate rounds/spend. Fix: enforce one per-session state-transition lock plus idempotency/expected-state tokens on every mutating command.
-- Retrying after a stream has emitted partial tokens is ambiguous: durable partial output may be mixed with the retry's output. Fix: persist each provider attempt separately and select exactly one successful attempt as the seat's round output.
-- "Atomic finalize" conflicts with durable token-by-token appends, and cancellation mid-round has no explicit terminal round status. Fix: define append chunks as provisional, then atomically mark them accepted/discarded and mark cancelled rounds `abandoned`.
-- Backpressure's "explicit overflow handling" does not say whether UI tokens are dropped, which can make the displayed transcript diverge from persisted output. Fix: make overflow lossless via coalesced resync chunks, or visibly mark dropped UI ranges and reload authoritative persisted text.
-- The consensus guard cannot be deterministic while "compatible stance" and quorum denominator are undefined for arbitrary free-text stances. Fix: specify canonical compatibility rules, quorum denominator, confidence aggregation, and validated default thresholds.
-- `max_rounds` and seat-count constraints are described but not validated, allowing zero/invalid caps, no mediator, duplicate IDs, or unsupported rosters. Fix: validate a bounded `max_rounds`, exactly one mediator, 2–6 distinct panelists, and usable credentials before creating a session.
-- A mediator can request user input with an empty question list, or return incompatible fields for an interaction mode. Fix: add semantic ruling validation requiring non-empty bounded questions whenever pausing and mode-consistent field combinations.
-- Final synthesis is a separate provider call with no state, budget, retry, persistence, or failure behavior. Fix: add a persisted `Finalizing` state with mediator budgets and a defined terminal fallback that exports the transcript when synthesis fails.
-- `Halted`, `MediatorError`, and `Interrupted` sessions have no stated export/view outcome beyond read-only reopening. Fix: provide a terminal failure view and self-contained export with reason, last durable round, and transcript.
-- "Validated provider/host" is underspecified for generic endpoints and redirects; host confirmation alone does not define safe credential routing. Fix: canonicalize key-to-origin bindings, require HTTPS except explicit loopback opt-in, and disable cross-origin redirects before attaching credentials.
-- The credential model lacks a non-secret credential reference, so multiple accounts for one provider/host cannot be selected reliably. Fix: store an opaque keychain-item ID in each seat configuration and snapshot its non-secret identity.
-- Per-token durable SQLite writes can cause lock contention and severe streaming latency, especially with concurrent seats. Fix: append bounded token chunks through a single writer with defined flush intervals and crash-recovery semantics.
-- Error handling lacks a diagnostic record for provider failures, making adapter and production failures hard to distinguish. Fix: persist redacted error class, adapter, HTTP status, retry count, deadline hit, and provider request ID when available.
-
-VERDICT: REVISE
-
-### Claude's response
-All 13 findings accepted and folded into `PLAN.md`, one with a nuance:
-- **Consensus-guard determinism (#5):** rather than invent canonical free-text "compatibility" (inherently non-deterministic without an extra LLM/embedding call), the guard is now defined purely over **structured fields**: denominator = surviving non-abstained panelists; agreement measured via the validated `agree_with[]` **graph** forming a single cluster ≥ quorum fraction (default ⌈2/3⌉); confidence aggregation = mean survivor confidence ≥ floor (default 0.6). **Stance prose is explicitly never compared semantically.** Added the honesty limit (self-reported agreement) to Risks.
+All 15 accepted — Codex read the real code and every finding checks out (verified: `sse.rs` drops Anthropic input usage; no `src/components/ui/command`; tauri.conf min 940×640; all events keyed by `round`). Folded into `PLAN.md`, three with an arbiter nuance:
+- **Usage persistence (#2):** scoped as explicitly **transient UI-only for v1** — telemetry resets on reload, no SQLite migration this pass (persistence deferred to a later data pass). Keeps "small engine work" honest; documented as a known limitation, not hidden.
+- **TTFT/tok-s (#4):** labeled **approximate** (`~`, client-derived) rather than adding an engine timing-metrics pipeline. Real token *counts* are exact (from usage); rates are honestly marked approximate.
+- **Transcript loss (#5):** dropped the false "reload authoritative text" claim entirely. Token display stays best-effort (existing `StreamSink` behavior unchanged); the new log rail carries **lifecycle events only**, so it never depends on lossy token delivery.
 
 Accepted and added:
-- Per-session state-transition lock + `expected_state` tokens on all mutating commands (§1) — no racing duplicate rounds/spend.
-- Per-attempt isolation (§3b–c, Terminology): provisional chunks tagged `(round, seat, attempt)`, discarded on retry, exactly one accepted; retries never mix partial output.
-- Provisional→accepted/discarded chunk lifecycle + atomic finalize (§3i); cancelled round → `abandoned` + terminal `Abandoned` state (§8).
-- Lossless backpressure (§8): overflow never silently drops tokens — coalesced resync or reload authoritative persisted text; UI can't diverge from DB.
-- Session-creation validation (§10): `max_rounds` 1..=64, exactly one mediator, 2–6 distinct panelists, resolvable credentials + reachable origin — before any spend.
-- Semantic ruling validation (§3g): `request_user_input==true` ⇒ non-empty bounded questions; mode-consistent field combos.
-- `Finalizing` state (§6): synthesis under mediator budgets + retry + terminal fallback exporting transcript on synthesis failure.
-- Terminal failure view + export (§11) for `Halted`/`MediatorError`/`Interrupted`/`Abandoned` with reason + last durable round.
-- Credential routing (§9): opaque keychain-item `credential_ref` (multi-account), canonical key-to-origin binding, HTTPS-except-loopback, no cross-origin redirects before attaching credentials, origin-change confirmation.
-- Single-writer chunked persistence (§7): bounded chunks flushed on interval, no per-token writes; crash-recovery rollback of provisional rounds.
-- Diagnostic `error_records` (§7): redacted error class, adapter, HTTP status, retry count, deadline-hit, provider request id.
+- Anthropic `message_start` input-usage parsing + fixtures (#1); `SeatUsage` carries `attempt`, store dedupes by `(round,seat,attempt)`, counts accepted attempt only (#3).
+- Convergence readout driven by backend truth: extend `Ruling`/emit cluster metric (`cluster_fraction`, `mean_confidence`) each round; meter never infers consensus from stance prose (#6).
+- Finalization rendered distinctly ("SYNTHESIZING"); round counter clamped to max, never shows `NN/<max+1>` (#7).
+- Pricing keyed by canonical (provider, model) for anthropic/openai only; openai_compatible/CLI/demo/unknown → `—`, never fabricated (#8).
+- Event-log rail = bounded ring buffer, lifecycle events only, token events excluded (#9).
+- Command palette built from existing `ui/dialog` + reka `ListboxRoot`/combobox (or shadcn-vue CLI add), path specified (#10).
+- Centralized keybinding module: contenteditable + select + IME `isComposing` + modifier + phase-aware + focus-restoration guards (#11).
+- Persistent effects/contrast toggle (Off/Ambient/Max, default Ambient) in localStorage; static overlays contrast-capped; reduced-motion still kills motion (#12).
+- Compact desktop breakpoints: at min size the log rail collapses + seat grid scrolls; tested at 940×640 and 200% zoom (#13).
+- Verification adds Rust tests (Anthropic input-usage fixture, `SeatUsage` emit/dedupe) + frontend store tests (usage dedupe across retries, log-rail cap, shortcut focus guards, reduced-motion) (#14).
+- Display font locked: **Departure Mono** (SIL OFL 1.1, self-hosted woff2, ≤ ~40KB budget) as the blocky display face (#15). Feature cuts remain the single item held for user sign-off.
 
-## Round 3 — Codex
-Round 2's listed findings are addressed. Remaining material issues:
+## Round 2 — Codex
+Most prior findings addressed. Remaining material issues:
 
-- A per-session lock cannot deduplicate two simultaneous `start_deliberation` calls because neither call necessarily has an existing session yet. Fix: require a client idempotency key or atomically create a unique "starting" session before any provider task launches.
-- Problem text and accumulated user Q&A remain unbounded, so they can still overflow provider context windows despite the bounded ledger. Fix: enforce input-size limits and construct every provider request under an explicit total context-token budget.
-- The ledger promises a "capped running synthesis," but the ruling schema has no `summary` field and persistence names only rulings/chunks. Fix: add a versioned, capped mediator-summary field and persist it explicitly as the ledger source.
-- The agreement guard leaves "single agreement cluster" undefined for a directed `agree_with[]` graph; weak connectivity lets one-sided claims create consensus. Fix: define the exact graph algorithm and require reciprocal agreement edges for all quorum members.
-- Live events, the single writer, cancellation, and finalization lack a stated ordering/fencing invariant, so queued pre-cancel chunks can be persisted or displayed after `Abandoned`. Fix: attach a round/attempt generation fence to every queued chunk and emit only writer-acknowledged chunks.
-- The relational model is `sessions → rounds → attempts → chunks`, but final synthesis is outside a round and has no defined place for its attempts/chunks. Fix: add a persisted finalization-attempt entity (or an explicit synthetic finalization round) with the same accept/discard lifecycle.
+- "Exact token totals" still false when usage unavailable: CLI/demo return `None`, HTTP can omit a count; summing nulls as 0 undercounts. Fix: nullable wire fields, render `—`/`partial`, never "exact" unless every included completion reported both counts.
+- Acceptance fence ambiguous: "emit after `Ok(completion)`" permits emitting before `accept_attempt`; a later storage failure shows usage for an unaccepted attempt. Fix: emit `SeatUsage` only after `accept_attempt` succeeds, carry durable attempt identity.
+- Convergence event can report wrong ruling: `Ruling` is emitted before the guard can downgrade it. Fix: compute cluster metrics + effective ruling after guard, emit one final per-round telemetry event for UI + log.
+- Logs have no authoritative timestamp/ordering: events carry neither; browser receipt time is distorted by concurrent producers. Fix: session-monotonic seq + engine timestamp, or label displayed times as local receipt.
+- Best-effort streaming has no visible loss signal: dropped tokens leave a plausible-but-incomplete argument while usage says it was larger. Fix: per-seat/attempt sequencing + `stream_gap` indicator, mark transcript incomplete on gap.
+- Transient telemetry unresolved product contract: plan still asks whether reload-loss is acceptable. Fix: get sign-off on transient-only, or add the persisted read model.
+- Perf mitigation only a risk note: no measurable budget/rule for when effects degrade under seven concurrent streams. Fix: define a frame-time budget + concrete degradation policy, test at max seats.
 
 VERDICT: REVISE
 
 ### Claude's response
-All 6 accepted — consistency/completeness fixes, all folded in:
-- **start dedup (§1, §3 state machine):** `start_deliberation` carries a client `idempotency_key`; core atomically inserts a `Starting` session row under UNIQUE(idempotency_key) before spawning any task — duplicate start returns the existing session. Added `Starting` to the state list.
-- **Input budgets (§8):** enforced input-size limits on problem + each Q&A at capture; every provider request assembled under an explicit total context-token budget with deterministic elision recorded — bounded ledger no longer masks unbounded raw input.
-- **Ledger summary field (§3g, §7):** added capped `summary` to the versioned ruling schema, persisted in the `rulings` row as the explicit ledger source.
-- **Reciprocal agreement graph (§3h):** guard now builds an undirected graph from **reciprocal `agree_with` edges only** (A→B counts iff B→A), takes the largest connected component, requires ≥ quorum coverage + mean-confidence floor. One-sided claims can't manufacture consensus.
-- **Generation fence (§7):** every chunk/event carries a `(round, attempt)` fence; writer persists / UI displays only live-generation chunks — queued pre-cancel/pre-retry chunks are dropped, none land after `Abandoned` or a discarded attempt.
-- **Finalization as synthetic round (§6, §7):** synthesis is a `kind=finalization` round reusing the exact `attempts → chunks` accept/discard lifecycle — no special-case entity outside the relational model.
+All 7 accepted — verified against real code (`accept_attempt`/`discard_attempt` lifecycle at `lib.rs:554-556`; guard downgrades after `Ruling` with `cluster_fraction`/`mean_confidence` in hand at `lib.rs:380-394`). Both major fixes land on existing structure. Folded in:
+- **Nullable usage → honest totals (#1):** wire fields nullable; per-seat/session totals shown "exact" only when every included completion reported both counts, else `partial`; providers with no usage (CLI/demo) → `—`. No summing nulls as zero.
+- **Emit-after-accept (#2):** `SeatUsage` emitted immediately after `accept_attempt(attempt_id)` succeeds (`lib.rs:556`), never on a discarded/retried attempt; carries `attempt` (consistent with `SeatStarted`/`Token`), store dedupes by `(round,seat,attempt)`.
+- **Single post-guard telemetry event (#3):** cluster/convergence telemetry (`effective_ruling`, `cluster_fraction`, `mean_confidence`) computed AFTER the guard and emitted at `RoundComplete` (`lib.rs:396`); the readout uses the effective (post-downgrade) ruling and also folds `ConsensusDowngraded` live during the round. Never trusts the pre-guard `Ruling`.
+- **Honest log timestamps (#4):** log rail labels times as **local receipt time**, ordered by receipt — no claim of engine-authoritative ordering. (Engine timestamp envelope noted as a later enhancement.)
+- **Visible stream-gap signal (#5):** the store already tracks `lastSeq` per seat; on a seq gap (received > `lastSeq`+1) set a per-seat `gap` flag and render a "⚠ stream incomplete" marker, so a dropped-token transcript can't masquerade as complete.
+- **Transient telemetry = decided, not asked (#6):** v1 is transient-only by decision (resets on reload); persisted read-model is an explicit deferred follow-up. Removed the waffle; still surfaced to the user at sign-off.
+- **Perf budget + degradation policy (#7):** type-on batched via `requestAnimationFrame`, text repaint capped (~≤30fps); target ~60fps idle and ≥30fps under 7 concurrent streams; if the frame budget is exceeded the console auto-drops to reduced effects (independent of the manual Off/Ambient/Max toggle). Tested with 6 panelists + mediator streaming.
+
+## Round 3 — Codex
+Most prior findings addressed. Remaining material issues:
+
+- Stream-gap detector is incorrect: `seq` is session-global and interleaves concurrent seats, so normal A(0),B(1),A(2) falsely marks A incomplete. Fix: emit a counter scoped to `(round,seat,attempt)`, reset on `seat_started`, add a concurrency test.
+- "Exact" usage underreports actual consumption on retries: counting only accepted attempts ignores billable tokens a failed/retried streamed request consumed. Fix: label "accepted-completion tokens/cost", never "total billing".
+- Post-guard telemetry ordering unspecified: if the per-round event arrives after `round_complete`, the store snapshots before it has the effective ruling/metrics. Fix: emit post-guard telemetry before `round_complete`, snapshot by round id defensively, test ordering.
+- Perf test assumes impossible shape: panelists run concurrently then mediator runs after `join_all`, so there are never seven simultaneous streams. Fix: benchmark the real six-panelist worst case; label seven-stream as synthetic.
+- "Canonical OpenAI host" not executable: a loose base-URL check can price a third-party compatible endpoint as OpenAI. Fix: parse URL, price only when normalized origin is exactly the approved OpenAI origin, else `—`.
+- Auto-degradation needs a state policy: without thresholds/hysteresis/precedence, effects flap or override the user. Fix: define sampling window, degrade/recover thresholds, hysteresis, and auto-vs-manual precedence.
+
+VERDICT: REVISE
+
+### Claude's response
+All 6 accepted — verified the seq claim against `lib.rs:142` (`seq: Arc<AtomicU64>` is shared session-global; it's also what lets retries survive the store's `e.seq <= lastSeq` stale-fence, so it must NOT be reset). Folded in:
+- **Correct gap detection (#1):** add a separate per-sink `seat_seq: u64` (each `StreamSink` gets its own counter from 0, reset per attempt) to the `Token` event — leave the shared global `seq` untouched for the stale-fence. Gap detection uses `seat_seq` contiguity, baseline reset on `seat_started`. Add a concurrency test proving no false gaps under interleaved seats.
+- **Honest billing label (#2):** the metric is "accepted-completion tokens" / "est. accepted-completion cost", never "total billing"; note that discarded/retried attempts may have consumed provider tokens not counted.
+- **Ordering (#3):** the post-guard per-round telemetry event is emitted **before** `RoundComplete` (between `lib.rs:394` and `:397`); the store stashes pending metrics and `snapshotRound` consumes them, keyed by round id. Add an event-ordering test.
+- **Real perf shape (#4):** panelists run concurrently then the mediator runs after `join_all` — max real concurrency is the panelist count (≤6). Retarget the budget to the **6-panelist worst case**; keep any 7-stream figure only as a separately-labeled synthetic stress test.
+- **Executable pricing origin (#5):** parse the seat `base_url`, normalize the origin, and allow OpenAI pricing only when it exactly equals `https://api.openai.com` (and Anthropic pricing only for `https://api.anthropic.com`); any other origin → `—`.
+- **Degradation state policy (#6):** sample frame time over a 1s rolling window; degrade after 2 consecutive windows with mean frame > 24 ms (~<42fps); recover after 3s sustained < 18 ms (hysteresis prevents flapping). Precedence: manual **Off** always wins; manual **Max** opts out of auto-degrade (explicit user override); **Ambient** (default) is the only mode auto-degradation touches.
 
 ## Round 4 — Codex
-All Round 3 findings are resolved in the plan: start idempotency, bounded inputs/context, persisted ledger summaries, reciprocal agreement semantics, generation-fenced persistence/events, and synthetic finalization rounds are specified coherently.
+Prior ordering, pricing-origin, performance, and per-seat sequencing issues are addressed. One remaining:
 
-I found no new material implementation blocker; the remaining listed risks are acknowledged tradeoffs with defined boundaries and tests.
+- Terminal token drops remain undetectable: contiguous `seat_seq` catches a missing middle token, but not a dropped final token or an entirely dropped stream, since no later token exposes the gap. Fix: include each attempt's final emitted `seat_seq` in `SeatUsage` (or a completion event); mark the transcript incomplete unless the client received every sequence through that terminal value; test final/all-token drop.
 
-VERDICT: APPROVED
+VERDICT: REVISE
+
+### Claude's response
+Accepted — genuinely sharp, and `SeatUsage` (emitted right after `accept_attempt`) is the natural carrier. Folded in: `SeatUsage` gains `final_seat_seq` = the terminal `seat_seq` the sink emitted for the accepted attempt. The store marks a seat's transcript **incomplete** unless it received a contiguous run through `final_seat_seq` (0-token accepted attempts included). This closes middle-drop, final-token-drop, and whole-stream-drop. Tests: final-token drop and whole-stream drop both surface the "⚠ stream incomplete" marker.
+
+## Round 5 — Codex (MAX_ROUNDS cap)
+Prior findings addressed. One remaining edge case:
+
+- `final_seat_seq: u64` has no representation for a successful completion that emitted zero chunks: `0` could mean "first chunk expected" or "no chunks existed" → false incompleteness or an unmarked empty transcript. Fix: send `emitted_seat_chunk_count: u64` (zero unambiguous) or make it nullable; test empty successful completions + text-without-streamed-chunks fallback.
+
+VERDICT: REVISE
+
+### Claude's response
+Accepted in full — no counter-position. Verified against `lib.rs:548`: the `chunks.is_empty() && !completion.text.is_empty()` fallback path emits zero `Token` events, so a terminal-seq of 0 is genuinely ambiguous. Changed the wire field from `final_seat_seq` to **`emitted_seat_chunk_count: u64`** (0 unambiguous); a seat is incomplete unless the client received exactly that many contiguous chunks. Added a zero-chunk successful-completion test alongside the drop tests.
 
 ---
-**Resolution: CONVERGED.** Grilled (Act 1) + survived 4 rounds of Codex adversarial review (Act 2, cap 5). No code written during either act. Awaiting user sign-off on implementation.
+**Resolution: CONVERGED IN SUBSTANCE — round cap reached, no open disagreement.**
+Act 1 (grill, 11 questions) locked intent with the user; Act 2 ran the full MAX_ROUNDS=5 with Codex (gpt-5.6-terra). The literal Round-5 verdict is REVISE, but this is **not a deadlock**: every one of Codex's ~29 findings across 5 rounds was *accepted* (a handful with logged arbiter nuances, zero rejected outright), and the Round-5 item was a single trivial one-field fix I agreed with and folded in. Codex was narrowing to progressively smaller edges (R3: 6 findings → R4: 1 → R5: 1 micro edge). There is **no outstanding point of disagreement to hand the user as a tie-break** — the only truly open item is a product decision the grill deferred to sign-off ("which cuts, if any"). No code written during either act.
+
