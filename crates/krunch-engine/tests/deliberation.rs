@@ -152,6 +152,54 @@ impl AgentProvider for RetryProvider {
     }
 }
 
+/// Delays before delegating to a normal scripted agent — for asserting that
+/// fast seats' stances are emitted while slow seats are still running.
+struct SlowAgent {
+    inner: MockAgent,
+    delay: std::time::Duration,
+}
+
+#[async_trait]
+impl Agent for SlowAgent {
+    fn capabilities(&self) -> Capabilities {
+        self.inner.capabilities()
+    }
+
+    async fn stream_completion(
+        &self,
+        req: &CompletionRequest,
+        budget: Budget,
+        cancel: CancellationToken,
+        sink: &mut dyn TokenSink,
+    ) -> Result<Completion, ProviderError> {
+        tokio::time::sleep(self.delay).await;
+        self.inner.stream_completion(req, budget, cancel, sink).await
+    }
+}
+
+struct SlowSeatProvider {
+    inner: MockProvider,
+    slow: SeatId,
+    delay: std::time::Duration,
+}
+
+impl AgentProvider for SlowSeatProvider {
+    fn build(&self, seat: &SeatConfig) -> Result<Box<dyn Agent>, EngineError> {
+        let script = self
+            .inner
+            .scripts
+            .get(&seat.id)
+            .cloned()
+            .unwrap_or_else(|| Arc::new(Mutex::new(VecDeque::new())));
+        let agent = MockAgent { script };
+        if seat.id == self.slow {
+            Ok(Box::new(SlowAgent { inner: agent, delay: self.delay }))
+        } else {
+            Ok(Box::new(agent))
+        }
+    }
+}
+
 fn seat(id: SeatId, role: Role) -> SeatConfig {
     SeatConfig {
         id,
@@ -278,6 +326,46 @@ async fn reaches_consensus_and_synthesizes_a_verdict() {
     assert!(usage
         .iter()
         .all(|(input, output, chunks)| input.is_none() && output.is_none() && *chunks == 2));
+}
+
+#[tokio::test]
+async fn stance_is_emitted_as_each_seat_finishes_not_at_round_end() {
+    let (a, b, med) = (SeatId::new(), SeatId::new(), SeatId::new());
+    let cfg = SessionConfig {
+        problem: "p".into(),
+        mode: InteractionMode::Autonomous,
+        max_rounds: 5,
+        guard: GuardThresholds::default(),
+        seats: vec![
+            seat(med, Role::Mediator),
+            seat(a, Role::Panelist),
+            seat(b, Role::Panelist),
+        ],
+    };
+    let mut inner = MockProvider::default();
+    inner.script(a, vec![stance(0.9, &[b])]);
+    inner.script(b, vec![stance(0.9, &[a])]);
+    inner.script(med, vec![ruling("CONSENSUS"), "FINAL VERDICT: yes.".into()]);
+    // Seat `b` is much slower than seat `a`.
+    let provider = SlowSeatProvider { inner, slow: b, delay: std::time::Duration::from_millis(250) };
+
+    let (state, events) = drive_with(cfg, Arc::new(provider)).await;
+    assert_eq!(state, SessionState::Converged);
+
+    let a_stance = events
+        .iter()
+        .position(|e| matches!(e, EngineEvent::Stance { seat, .. } if *seat == a))
+        .expect("a filed a stance");
+    let b_usage = events
+        .iter()
+        .position(|e| matches!(e, EngineEvent::SeatUsage { seat, .. } if *seat == b))
+        .expect("b completed");
+    // The fast seat's stance must land while the slow seat is still running —
+    // not batched after the whole round joins.
+    assert!(
+        a_stance < b_usage,
+        "stance for fast seat (idx {a_stance}) should precede slow seat completion (idx {b_usage})"
+    );
 }
 
 #[tokio::test]

@@ -22,7 +22,7 @@ use tokio_util::sync::CancellationToken;
 use krunch_core::config::{Role, SeatConfig, SessionConfig};
 use krunch_core::consensus::{evaluate_consensus, SurvivorStance};
 use krunch_core::ids::{RoundId, SeatId, SessionId};
-use krunch_core::parse::{parse_ruling, parse_stance, should_pause};
+use krunch_core::parse::{parse_ruling, parse_stance, should_pause, ParsedStance};
 use krunch_core::schema::Ruling;
 use krunch_core::state::{transition, Event as StateEvent, SessionState};
 use krunch_providers::agent::{Agent, TokenSink};
@@ -209,6 +209,17 @@ enum AttemptResult {
     Cancelled,
 }
 
+/// A panelist's round outcome after stance parsing (events already emitted
+/// per-seat inside the concurrent future; persistence happens sequentially).
+enum SeatOutcome {
+    /// Valid stance; `text` still feeds the mediator's round transcript.
+    Stance { text: String, parsed: Box<ParsedStance> },
+    /// No valid stance. `Some(text)` = completed but unparseable (text still
+    /// reaches the mediator); `None` = hard abstain (provider failure).
+    NoStance { text: Option<String> },
+    Cancelled,
+}
+
 /// A token sink that both streams tokens to the UI (with a monotonic seq) and
 /// buffers them for one batched persist per attempt.
 struct StreamSink {
@@ -335,13 +346,24 @@ impl Engine {
                 .await;
 
             // --- panelists, concurrently ---
+            // Each seat's future parses its stance and emits Stance/SeatAbstained
+            // the moment THAT seat finishes, so the UI updates per-seat instead of
+            // waiting for the slowest panelist. Persistence stays sequential below.
             let peers: Vec<String> = panelists.iter().map(|s| s.id.to_string()).collect();
+            let events_ref = &events;
+            let cancel_ref = &cancel;
+            let seq_ref = &seq;
             let mut futs = Vec::new();
             for p in &panelists {
                 let others: Vec<String> = peers
                     .iter()
                     .filter(|id| **id != p.id.to_string())
                     .cloned()
+                    .collect();
+                let other_ids: Vec<SeatId> = panelists
+                    .iter()
+                    .filter(|x| x.id != p.id)
+                    .map(|x| x.id)
                     .collect();
                 let msgs = prompts::panelist_messages(
                     &p.id.to_string(),
@@ -353,18 +375,64 @@ impl Engine {
                     &others,
                 );
                 let agent = agents.get(&p.id).unwrap().as_ref();
-                futs.push(self.run_attempt(
-                    session,
-                    round_id,
-                    round_index,
-                    p,
-                    agent,
-                    msgs,
-                    self.config.panelist_budget,
-                    &events,
-                    &cancel,
-                    &seq,
-                ));
+                futs.push(async move {
+                    let res = self
+                        .run_attempt(
+                            session,
+                            round_id,
+                            round_index,
+                            p,
+                            agent,
+                            msgs,
+                            self.config.panelist_budget,
+                            events_ref,
+                            cancel_ref,
+                            seq_ref,
+                        )
+                        .await?;
+                    Ok::<SeatOutcome, EngineError>(match res {
+                        AttemptResult::Completed(text) => {
+                            match parse_stance(&text, p.id, &other_ids) {
+                                Ok(parsed) => {
+                                    let _ = events_ref
+                                        .send(EngineEvent::Stance {
+                                            session,
+                                            round: round_index,
+                                            seat: p.id,
+                                            stance: parsed.stance.stance.clone(),
+                                            confidence: parsed.stance.confidence,
+                                        })
+                                        .await;
+                                    SeatOutcome::Stance { text, parsed: Box::new(parsed) }
+                                }
+                                Err(e) => {
+                                    let _ = events_ref
+                                        .send(EngineEvent::SeatAbstained {
+                                            session,
+                                            round: round_index,
+                                            seat: p.id,
+                                            reason: e.to_string(),
+                                        })
+                                        .await;
+                                    // Completed text still reaches the mediator.
+                                    SeatOutcome::NoStance { text: Some(text) }
+                                }
+                            }
+                        }
+                        AttemptResult::Abstained(reason) => {
+                            let _ = events_ref
+                                .send(EngineEvent::SeatAbstained {
+                                    session,
+                                    round: round_index,
+                                    seat: p.id,
+                                    reason,
+                                })
+                                .await;
+                            SeatOutcome::NoStance { text: None }
+                        }
+                        AttemptResult::Cancelled => SeatOutcome::Cancelled,
+                    })
+                });
             }
             let results = futures_util::future::join_all(futs).await;
 
@@ -372,56 +440,18 @@ impl Engine {
             let mut round_outputs: Vec<(String, String)> = Vec::new();
             for (p, res) in panelists.iter().zip(results) {
                 match res? {
-                    AttemptResult::Completed(text) => {
-                        round_outputs
-                            .push((format!("{} [{}]", p.display_name, p.id), text.clone()));
-                        let others: Vec<SeatId> = panelists
-                            .iter()
-                            .filter(|x| x.id != p.id)
-                            .map(|x| x.id)
-                            .collect();
-                        match parse_stance(&text, p.id, &others) {
-                            Ok(parsed) => {
-                                self.store
-                                    .record_stance(round_id, p.id, parsed.stance.clone())
-                                    .await?;
-                                let _ = events
-                                    .send(EngineEvent::Stance {
-                                        session,
-                                        round: round_index,
-                                        seat: p.id,
-                                        stance: parsed.stance.stance.clone(),
-                                        confidence: parsed.stance.confidence,
-                                    })
-                                    .await;
-                                survivors.push(SurvivorStance {
-                                    seat: p.id,
-                                    stance: parsed.stance,
-                                });
-                            }
-                            Err(e) => {
-                                let _ = events
-                                    .send(EngineEvent::SeatAbstained {
-                                        session,
-                                        round: round_index,
-                                        seat: p.id,
-                                        reason: e.to_string(),
-                                    })
-                                    .await;
-                            }
-                        }
+                    SeatOutcome::Stance { text, parsed } => {
+                        self.store
+                            .record_stance(round_id, p.id, parsed.stance.clone())
+                            .await?;
+                        round_outputs.push((format!("{} [{}]", p.display_name, p.id), text));
+                        survivors.push(SurvivorStance { seat: p.id, stance: parsed.stance });
                     }
-                    AttemptResult::Abstained(reason) => {
-                        let _ = events
-                            .send(EngineEvent::SeatAbstained {
-                                session,
-                                round: round_index,
-                                seat: p.id,
-                                reason,
-                            })
-                            .await;
+                    SeatOutcome::NoStance { text: Some(text) } => {
+                        round_outputs.push((format!("{} [{}]", p.display_name, p.id), text));
                     }
-                    AttemptResult::Cancelled => {
+                    SeatOutcome::NoStance { text: None } => {}
+                    SeatOutcome::Cancelled => {
                         return self.abandon(session, state, &events).await;
                     }
                 }
@@ -497,18 +527,16 @@ impl Engine {
             // Deterministic consensus guard (PLAN §3h).
             let guard = evaluate_consensus(&survivors, cfg.guard);
             let mut effective = ruling.ruling;
-            if ruling.ruling == Ruling::Consensus {
-                if !guard.consensus_ok {
-                    effective = Ruling::Continue;
-                    let _ = events
-                        .send(EngineEvent::ConsensusDowngraded {
-                            session,
-                            round: round_index,
-                            cluster_fraction: guard.cluster_fraction,
-                            mean_confidence: guard.mean_confidence,
-                        })
-                        .await;
-                }
+            if ruling.ruling == Ruling::Consensus && !guard.consensus_ok {
+                effective = Ruling::Continue;
+                let _ = events
+                    .send(EngineEvent::ConsensusDowngraded {
+                        session,
+                        round: round_index,
+                        cluster_fraction: guard.cluster_fraction,
+                        mean_confidence: guard.mean_confidence,
+                    })
+                    .await;
             }
 
             // This is deliberately after the deterministic guard and before

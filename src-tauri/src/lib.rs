@@ -57,6 +57,7 @@ pub fn run() {
             commands::set_credential,
             commands::has_credential,
             commands::export_session,
+            commands::save_session_dump,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

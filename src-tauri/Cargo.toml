@@ -30,3 +30,4 @@ tokio-util.workspace = true
 async-trait.workspace = true
 url = "2"
 keyring = { version = "3", features = ["apple-native"] }
+dirs = "6"

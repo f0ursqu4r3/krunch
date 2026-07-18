@@ -15,7 +15,13 @@ use crate::schema::{
 };
 
 /// Extract the content of the last fenced code block, preferring one tagged
-/// `json`. Returns `None` if there is no closed fenced block.
+/// `json`. Returns `None` if there is no usable block.
+///
+/// A trailing *unclosed* fence with non-empty content is accepted as a
+/// candidate: models routinely spend their last tokens on the stance block and
+/// get cut (or simply forget) before the closing ``` — rejecting the block
+/// outright turned an otherwise-valid stance into a spurious abstain. The JSON
+/// is fully validated downstream either way.
 pub fn extract_last_json_block(raw: &str) -> Option<String> {
     let mut blocks: Vec<(String, String)> = Vec::new(); // (lang, content)
     let mut in_block = false;
@@ -41,7 +47,10 @@ pub fn extract_last_json_block(raw: &str) -> Option<String> {
             buf.push('\n');
         }
     }
-    // An unclosed final fence is ignored (not a complete block).
+    // A trailing unclosed fence still counts if it has content (see above).
+    if in_block && !buf.trim().is_empty() {
+        blocks.push((lang, buf));
+    }
 
     blocks
         .iter()
@@ -219,8 +228,18 @@ mod tests {
     #[test]
     fn no_block_returns_none() {
         assert!(extract_last_json_block("just prose, no fence").is_none());
-        // Unclosed fence is not a complete block.
-        assert!(extract_last_json_block("```json\n{\"a\":1}").is_none());
+        // An unclosed fence with no content is not a block.
+        assert!(extract_last_json_block("prose\n```json").is_none());
+    }
+
+    #[test]
+    fn accepts_a_trailing_unclosed_fence_with_content() {
+        // Model spent its last tokens on the stance and never closed the fence.
+        assert_eq!(extract_last_json_block("prose\n```json\n{\"a\":1}").unwrap(), "{\"a\":1}");
+        // A closed json block earlier + an unclosed trailing json fence: the
+        // trailing one is the model's final answer and wins.
+        let raw = "```json\n{\"draft\":1}\n```\nrevised:\n```json\n{\"final\":1}";
+        assert_eq!(extract_last_json_block(raw).unwrap(), "{\"final\":1}");
     }
 
     fn stance_json(confidence: f64, agree: &str) -> String {

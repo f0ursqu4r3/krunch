@@ -1954,6 +1954,7 @@ name = "krunch"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "dirs",
  "keyring",
  "krunch-core",
  "krunch-engine",

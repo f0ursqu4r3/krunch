@@ -169,6 +169,24 @@ pub async fn export_session(state: State<'_, AppState>, session_id: String) -> R
     crate::export::export_markdown(&store, session).await
 }
 
+/// Save the session dump to the user's Downloads folder and reveal it in the
+/// file manager. Returns the written path. (A blob-anchor download does not
+/// work inside the WKWebView, so the file is written natively.)
+#[tauri::command]
+pub async fn save_session_dump(state: State<'_, AppState>, session_id: String) -> Result<String, String> {
+    let session = parse_session(&session_id)?;
+    let store = state.store.clone();
+    let markdown = crate::export::export_markdown(&store, session).await?;
+
+    let dir = dirs::download_dir().ok_or("could not locate the Downloads folder")?;
+    let short = session_id.get(..8).unwrap_or(&session_id);
+    let path = dir.join(format!("krunch-session-{short}.md"));
+    std::fs::write(&path, markdown).map_err(|e| format!("write {}: {e}", path.display()))?;
+    // Best-effort reveal; the save itself already succeeded.
+    let _ = tauri_plugin_opener::reveal_item_in_dir(&path);
+    Ok(path.display().to_string())
+}
+
 /// Health check retained from M1.
 #[tauri::command]
 pub fn core_version() -> String {
