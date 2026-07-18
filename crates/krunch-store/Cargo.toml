@@ -1,0 +1,18 @@
+[package]
+name = "krunch-store"
+description = "SQLite persistence for krunch: single-writer, attempt/chunk lifecycle, crash recovery"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+krunch-core = { path = "../krunch-core" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,19 @@
+[package]
+name = "krunch-providers"
+description = "HTTP provider adapters (Anthropic, OpenAI-compatible) behind one Agent trait"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+krunch-core = { path = "../krunch-core" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+futures-util.workspace = true
+async-trait.workspace = true
+bytes.workspace = true
+reqwest.workspace = true

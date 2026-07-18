@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/krunch-core", "src-tauri"]
+members = [
+    "crates/krunch-core",
+    "crates/krunch-providers",
+    "crates/krunch-store",
+    "src-tauri",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -14,3 +19,8 @@ serde_json = "1"
 thiserror = "2"
 uuid = { version = "1", features = ["v4", "serde"] }
 tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+futures-util = "0.3"
+async-trait = "0.1"
+bytes = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
