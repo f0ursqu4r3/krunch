@@ -1,70 +1,27 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useDeliberation } from "@/stores/deliberation";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
 const store = useDeliberation();
-const panelistIds = computed(() => store.panelists.map((p) => p.id));
-function nameOf(id: string) {
-  return store.seats.find((s) => s.id === id)?.display_name ?? id.slice(0, 6);
-}
-function conf(round: { stances: { seat: string; confidence: number }[] }, seat: string) {
-  return round.stances.find((s) => s.seat === seat)?.confidence ?? 0;
-}
-const rulingDot: Record<string, string> = {
-  CONSENSUS: "bg-consensus",
-  CONTINUE: "bg-brass/60",
-  DEADLOCK: "bg-deadlock",
-};
+const telemetry = computed(() => {
+  if (store.convergence) return store.convergence;
+  const last = store.rounds[store.rounds.length - 1];
+  return last ? { round: last.round, effectiveRuling: last.ruling ?? "CONTINUE", clusterFraction: last.clusterFraction ?? 0, meanConfidence: last.meanConfidence ?? 0, downgraded: last.downgraded ?? false } : null;
+});
+const tone = computed(() => telemetry.value?.effectiveRuling === "CONSENSUS" ? "text-consensus" : telemetry.value?.effectiveRuling === "DEADLOCK" ? "text-deadlock" : "text-brass");
 </script>
 
 <template>
-  <Card class="rise h-full gap-0 border-line bg-surface/40 py-0" style="animation-delay: 120ms">
-    <CardHeader class="border-b border-line/60 px-4 py-3">
-      <h3 class="font-display text-sm text-foreground">The tally</h3>
-      <p class="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-faint">conviction by round</p>
-    </CardHeader>
-
-    <Empty v-if="store.rounds.length === 0" class="flex-1">
-      <EmptyHeader>
-        <EmptyTitle class="font-display text-sm italic text-fg-faint">No rounds have closed</EmptyTitle>
-        <EmptyDescription class="text-fg-faint/70">The room is still speaking.</EmptyDescription>
-      </EmptyHeader>
-    </Empty>
-
-    <CardContent v-else class="flex-1 overflow-auto p-3">
-      <table class="w-full border-separate border-spacing-1.5 text-[11px]">
-        <thead>
-          <tr>
-            <th></th>
-            <th v-for="r in store.rounds" :key="r.round"
-              class="font-mono text-[10px] font-normal text-fg-faint">R{{ r.round + 1 }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="pid in panelistIds" :key="pid">
-            <td class="max-w-[90px] truncate pr-1 text-fg-muted">{{ nameOf(pid) }}</td>
-            <td v-for="r in store.rounds" :key="r.round" class="text-center">
-              <div class="mx-auto grid size-7 place-items-center rounded"
-                :style="{ backgroundColor: `color-mix(in oklch, var(--brass) ${conf(r, pid) * 90 + 6}%, var(--surface-3))` }"
-                :title="`${(conf(r, pid) * 100).toFixed(0)}%`">
-                <span class="font-mono text-[9px]"
-                  :style="{ color: conf(r, pid) > 0.5 ? 'var(--brass-ink)' : 'var(--fg-faint)' }">
-                  {{ (conf(r, pid) * 100).toFixed(0) }}
-                </span>
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <td class="pr-1 font-mono text-[10px] uppercase tracking-wide text-fg-faint">rule</td>
-            <td v-for="r in store.rounds" :key="r.round" class="text-center">
-              <span class="mx-auto block h-1.5 w-6 rounded-full" :class="rulingDot[r.ruling ?? ''] ?? 'bg-surface-3'"
-                :title="r.ruling" />
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </CardContent>
-  </Card>
+  <section class="min-w-[12rem]" aria-label="Convergence telemetry">
+    <div class="mb-1 flex items-center justify-between gap-2 font-mono text-[9px] uppercase tracking-[0.12em] text-fg-faint">
+      <span>convergence</span><span :class="tone">{{ telemetry?.effectiveRuling ?? "SCANNING" }}</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <div class="h-2 flex-1 overflow-hidden border border-line bg-bg-deep">
+        <div class="h-full transition-[width] duration-300" :class="telemetry?.effectiveRuling === 'DEADLOCK' ? 'bg-deadlock shake' : telemetry?.effectiveRuling === 'CONSENSUS' ? 'bg-consensus' : 'bg-brass'" :style="{ width: `${Math.round((telemetry?.clusterFraction ?? 0) * 100)}%` }" />
+      </div>
+      <span class="w-9 text-right font-mono text-[10px]" :class="tone">{{ Math.round((telemetry?.clusterFraction ?? 0) * 100) }}%</span>
+    </div>
+    <p class="mt-1 font-mono text-[9px] text-fg-faint">cluster / μ confidence {{ Math.round((telemetry?.meanConfidence ?? 0) * 100) }}<span v-if="telemetry?.downgraded"> / guard</span></p>
+  </section>
 </template>

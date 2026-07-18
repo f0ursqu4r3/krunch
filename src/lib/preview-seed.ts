@@ -34,11 +34,11 @@ export function seedPreview(store: Store, kind: string) {
 
   store.live[p1.id] = {
     id: p1.id, text: P1, status: "stance",
-    stance: "Cozy farming-sim — proven audience", confidence: 0.86, lastSeq: 9,
+    stance: "Cozy farming-sim — proven audience", confidence: 0.86, lastSeq: 9, seatLastSeq: 9, receivedChunkCount: 10, streamIncomplete: false,
   };
   store.live[p2.id] = {
     id: p2.id, text: P2, status: "stance",
-    stance: "Cozy sim is the only finishable option", confidence: 0.79, lastSeq: 9,
+    stance: "Cozy sim is the only finishable option", confidence: 0.79, lastSeq: 9, seatLastSeq: 9, receivedChunkCount: 10, streamIncomplete: false,
   };
   store.mediatorText = MED;
 

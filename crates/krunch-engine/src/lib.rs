@@ -79,19 +79,96 @@ impl UserGate for NoopGate {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum EngineEvent {
-    StateChanged { session: SessionId, state: SessionState },
-    RoundStarted { session: SessionId, round: u32 },
-    SeatStarted { session: SessionId, round: u32, seat: SeatId, attempt: u32 },
-    Token { session: SessionId, round: u32, seat: SeatId, attempt: u32, seq: u64, text: String },
-    SeatTruncated { session: SessionId, round: u32, seat: SeatId, cause: String },
-    Stance { session: SessionId, round: u32, seat: SeatId, stance: String, confidence: f64 },
-    SeatAbstained { session: SessionId, round: u32, seat: SeatId, reason: String },
-    Ruling { session: SessionId, round: u32, ruling: Ruling, summary: String, next_focus: String },
-    ConsensusDowngraded { session: SessionId, round: u32, cluster_fraction: f64, mean_confidence: f64 },
-    RoundComplete { session: SessionId, round: u32 },
-    AwaitingUser { session: SessionId, round: u32, questions: Vec<String> },
-    Verdict { session: SessionId, outcome: SessionState, text: String },
-    Failed { session: SessionId, state: SessionState, reason: String },
+    StateChanged {
+        session: SessionId,
+        state: SessionState,
+    },
+    RoundStarted {
+        session: SessionId,
+        round: u32,
+    },
+    SeatStarted {
+        session: SessionId,
+        round: u32,
+        seat: SeatId,
+        attempt: u32,
+    },
+    Token {
+        session: SessionId,
+        round: u32,
+        seat: SeatId,
+        attempt: u32,
+        seq: u64,
+        seat_seq: u64,
+        text: String,
+    },
+    SeatUsage {
+        session: SessionId,
+        round: u32,
+        seat: SeatId,
+        attempt: u32,
+        input_tokens: Option<u32>,
+        output_tokens: Option<u32>,
+        emitted_seat_chunk_count: u64,
+    },
+    SeatTruncated {
+        session: SessionId,
+        round: u32,
+        seat: SeatId,
+        cause: String,
+    },
+    Stance {
+        session: SessionId,
+        round: u32,
+        seat: SeatId,
+        stance: String,
+        confidence: f64,
+    },
+    SeatAbstained {
+        session: SessionId,
+        round: u32,
+        seat: SeatId,
+        reason: String,
+    },
+    Ruling {
+        session: SessionId,
+        round: u32,
+        ruling: Ruling,
+        summary: String,
+        next_focus: String,
+    },
+    ConsensusDowngraded {
+        session: SessionId,
+        round: u32,
+        cluster_fraction: f64,
+        mean_confidence: f64,
+    },
+    RoundTelemetry {
+        session: SessionId,
+        round: u32,
+        effective_ruling: Ruling,
+        cluster_fraction: f64,
+        mean_confidence: f64,
+    },
+    RoundComplete {
+        session: SessionId,
+        round: u32,
+    },
+    AwaitingUser {
+        session: SessionId,
+        round: u32,
+        questions: Vec<String>,
+    },
+    Verdict {
+        session: SessionId,
+        outcome: SessionState,
+        text: String,
+    },
+    Failed {
+        session: SessionId,
+        state: SessionState,
+        reason: String,
+    },
 }
 
 /// Engine tunables (PLAN §3c/§8).
@@ -140,6 +217,7 @@ struct StreamSink {
     seat: SeatId,
     attempt: u32,
     seq: Arc<AtomicU64>,
+    seat_seq: u64,
     events: mpsc::Sender<EngineEvent>,
     buffer: Vec<String>,
 }
@@ -148,21 +226,28 @@ impl TokenSink for StreamSink {
     fn on_token(&mut self, chunk: &str) {
         self.buffer.push(chunk.to_string());
         let seq = self.seq.fetch_add(1, Ordering::Relaxed);
+        let seat_seq = self.seat_seq;
+        self.seat_seq += 1;
         // Lossless against the DB: if the UI channel is full we drop the live
-        // event; the UI reloads authoritative persisted text (PLAN §8).
+        // event. The cockpit marks its best-effort transcript incomplete rather
+        // than claiming to reload an authoritative stream.
         let _ = self.events.try_send(EngineEvent::Token {
             session: self.session,
             round: self.round,
             seat: self.seat,
             attempt: self.attempt,
             seq,
+            seat_seq,
             text: chunk.to_string(),
         });
     }
 }
 
 fn jitter01() -> f64 {
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().subsec_nanos();
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .subsec_nanos();
     (nanos % 1000) as f64 / 1000.0
 }
 
@@ -176,7 +261,11 @@ fn cap_chars(s: String, n: usize) -> String {
 
 impl Engine {
     pub fn new(store: Store, provider: Arc<dyn AgentProvider>, config: EngineConfig) -> Self {
-        Self { store, provider, config }
+        Self {
+            store,
+            provider,
+            config,
+        }
     }
 
     /// Drive a created session to a terminal state, streaming events. The session
@@ -189,8 +278,12 @@ impl Engine {
         events: mpsc::Sender<EngineEvent>,
         cancel: CancellationToken,
     ) -> Result<SessionState, EngineError> {
-        let panelists: Vec<SeatConfig> =
-            cfg.seats.iter().filter(|s| s.role == Role::Panelist).cloned().collect();
+        let panelists: Vec<SeatConfig> = cfg
+            .seats
+            .iter()
+            .filter(|s| s.role == Role::Panelist)
+            .cloned()
+            .collect();
         let mediator = cfg
             .seats
             .iter()
@@ -210,7 +303,9 @@ impl Engine {
         let seq = Arc::new(AtomicU64::new(0));
         let mut state = SessionState::Starting;
 
-        state = self.advance(session, state, StateEvent::BeginRound, &events).await?;
+        state = self
+            .advance(session, state, StateEvent::BeginRound, &events)
+            .await?;
 
         let mut ledger = String::new();
         let mut focus = String::new();
@@ -225,16 +320,29 @@ impl Engine {
 
             let round_id = self
                 .store
-                .begin_round(session, round_index, RoundKind::Deliberation, non_empty(&focus))
+                .begin_round(
+                    session,
+                    round_index,
+                    RoundKind::Deliberation,
+                    non_empty(&focus),
+                )
                 .await?;
-            let _ = events.send(EngineEvent::RoundStarted { session, round: round_index }).await;
+            let _ = events
+                .send(EngineEvent::RoundStarted {
+                    session,
+                    round: round_index,
+                })
+                .await;
 
             // --- panelists, concurrently ---
             let peers: Vec<String> = panelists.iter().map(|s| s.id.to_string()).collect();
             let mut futs = Vec::new();
             for p in &panelists {
-                let others: Vec<String> =
-                    peers.iter().filter(|id| **id != p.id.to_string()).cloned().collect();
+                let others: Vec<String> = peers
+                    .iter()
+                    .filter(|id| **id != p.id.to_string())
+                    .cloned()
+                    .collect();
                 let msgs = prompts::panelist_messages(
                     &p.id.to_string(),
                     &p.system_prompt,
@@ -267,8 +375,11 @@ impl Engine {
                     AttemptResult::Completed(text) => {
                         round_outputs
                             .push((format!("{} [{}]", p.display_name, p.id), text.clone()));
-                        let others: Vec<SeatId> =
-                            panelists.iter().filter(|x| x.id != p.id).map(|x| x.id).collect();
+                        let others: Vec<SeatId> = panelists
+                            .iter()
+                            .filter(|x| x.id != p.id)
+                            .map(|x| x.id)
+                            .collect();
                         match parse_stance(&text, p.id, &others) {
                             Ok(parsed) => {
                                 self.store
@@ -283,7 +394,10 @@ impl Engine {
                                         confidence: parsed.stance.confidence,
                                     })
                                     .await;
-                                survivors.push(SurvivorStance { seat: p.id, stance: parsed.stance });
+                                survivors.push(SurvivorStance {
+                                    seat: p.id,
+                                    stance: parsed.stance,
+                                });
                             }
                             Err(e) => {
                                 let _ = events
@@ -315,7 +429,9 @@ impl Engine {
 
             // Survivor floor (PLAN §3e).
             if survivors.len() < 2 {
-                state = self.advance(session, state, StateEvent::TooFewSurvivors, &events).await?;
+                state = self
+                    .advance(session, state, StateEvent::TooFewSurvivors, &events)
+                    .await?;
                 let _ = events
                     .send(EngineEvent::Failed {
                         session,
@@ -362,7 +478,9 @@ impl Engine {
             let ruling = match parse_ruling(&med_text, cfg.mode) {
                 Ok(r) => r,
                 Err(e) => {
-                    return self.mediator_error(session, state, e.to_string(), &events).await;
+                    return self
+                        .mediator_error(session, state, e.to_string(), &events)
+                        .await;
                 }
             };
             self.store.record_ruling(round_id, ruling.clone()).await?;
@@ -377,9 +495,9 @@ impl Engine {
                 .await;
 
             // Deterministic consensus guard (PLAN §3h).
+            let guard = evaluate_consensus(&survivors, cfg.guard);
             let mut effective = ruling.ruling;
             if ruling.ruling == Ruling::Consensus {
-                let guard = evaluate_consensus(&survivors, cfg.guard);
                 if !guard.consensus_ok {
                     effective = Ruling::Continue;
                     let _ = events
@@ -393,8 +511,25 @@ impl Engine {
                 }
             }
 
+            // This is deliberately after the deterministic guard and before
+            // RoundComplete. The UI snapshots backend truth from this event.
+            let _ = events
+                .send(EngineEvent::RoundTelemetry {
+                    session,
+                    round: round_index,
+                    effective_ruling: effective,
+                    cluster_fraction: guard.cluster_fraction,
+                    mean_confidence: guard.mean_confidence,
+                })
+                .await;
+
             self.store.finalize_round(round_id).await?;
-            let _ = events.send(EngineEvent::RoundComplete { session, round: round_index }).await;
+            let _ = events
+                .send(EngineEvent::RoundComplete {
+                    session,
+                    round: round_index,
+                })
+                .await;
 
             if !ruling.summary.is_empty() {
                 ledger = cap_chars(ruling.summary.clone(), self.config.ledger_cap_chars);
@@ -416,8 +551,9 @@ impl Engine {
                         break;
                     }
                     if should_pause(cfg.mode, &ruling) {
-                        state =
-                            self.advance(session, state, StateEvent::PauseForUser, &events).await?;
+                        state = self
+                            .advance(session, state, StateEvent::PauseForUser, &events)
+                            .await?;
                         let _ = events
                             .send(EngineEvent::AwaitingUser {
                                 session,
@@ -425,7 +561,10 @@ impl Engine {
                                 questions: ruling.questions_for_user.clone(),
                             })
                             .await;
-                        match gate.ask(round_index, ruling.questions_for_user.clone()).await {
+                        match gate
+                            .ask(round_index, ruling.questions_for_user.clone())
+                            .await
+                        {
                             GateResponse::Answers(ans) => {
                                 for (q, a) in ans {
                                     self.store
@@ -491,7 +630,13 @@ impl Engine {
             StateEvent::SynthesisDeadlocked
         };
         state = self.advance(session, state, outcome, &events).await?;
-        let _ = events.send(EngineEvent::Verdict { session, outcome: state, text: verdict }).await;
+        let _ = events
+            .send(EngineEvent::Verdict {
+                session,
+                outcome: state,
+                text: verdict,
+            })
+            .await;
         Ok(state)
     }
 
@@ -537,11 +682,15 @@ impl Engine {
                 seat: seat.id,
                 attempt: attempt_no,
                 seq: seq.clone(),
+                seat_seq: 0,
                 events: events.clone(),
                 buffer: Vec::new(),
             };
-            let res = agent.stream_completion(&req, budget, cancel.clone(), &mut sink).await;
+            let res = agent
+                .stream_completion(&req, budget, cancel.clone(), &mut sink)
+                .await;
             let chunks = std::mem::take(&mut sink.buffer);
+            let emitted_seat_chunk_count = sink.seat_seq;
 
             match res {
                 Ok(completion) => {
@@ -554,6 +703,19 @@ impl Engine {
                         self.store.append_chunks(attempt_id, to_store).await?;
                     }
                     self.store.accept_attempt(attempt_id).await?;
+                    // Usage is transient telemetry for accepted completions
+                    // only. Discarded retries are intentionally never emitted.
+                    let _ = events
+                        .send(EngineEvent::SeatUsage {
+                            session,
+                            round: round_index,
+                            seat: seat.id,
+                            attempt: attempt_no,
+                            input_tokens: completion.usage.input_tokens,
+                            output_tokens: completion.usage.output_tokens,
+                            emitted_seat_chunk_count,
+                        })
+                        .await;
                     if let Some(cause) = completion.truncated {
                         let _ = events
                             .send(EngineEvent::SeatTruncated {
@@ -619,7 +781,12 @@ impl Engine {
     ) -> Result<SessionState, EngineError> {
         let next = transition(from, event).map_err(|e| EngineError::Transition(e.to_string()))?;
         self.store.set_state(session, next).await?;
-        let _ = events.send(EngineEvent::StateChanged { session, state: next }).await;
+        let _ = events
+            .send(EngineEvent::StateChanged {
+                session,
+                state: next,
+            })
+            .await;
         Ok(next)
     }
 
@@ -629,9 +796,15 @@ impl Engine {
         from: SessionState,
         events: &mpsc::Sender<EngineEvent>,
     ) -> Result<SessionState, EngineError> {
-        let state = self.advance(session, from, StateEvent::Cancelled, events).await?;
+        let state = self
+            .advance(session, from, StateEvent::Cancelled, events)
+            .await?;
         let _ = events
-            .send(EngineEvent::Failed { session, state, reason: "abandoned".into() })
+            .send(EngineEvent::Failed {
+                session,
+                state,
+                reason: "abandoned".into(),
+            })
             .await;
         Ok(state)
     }
@@ -643,8 +816,16 @@ impl Engine {
         reason: String,
         events: &mpsc::Sender<EngineEvent>,
     ) -> Result<SessionState, EngineError> {
-        let state = self.advance(session, from, StateEvent::MediatorFailed, events).await?;
-        let _ = events.send(EngineEvent::Failed { session, state, reason }).await;
+        let state = self
+            .advance(session, from, StateEvent::MediatorFailed, events)
+            .await?;
+        let _ = events
+            .send(EngineEvent::Failed {
+                session,
+                state,
+                reason,
+            })
+            .await;
         Ok(state)
     }
 }

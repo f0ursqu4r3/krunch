@@ -110,3 +110,22 @@ Accepted in full — no counter-position. Verified against `lib.rs:548`: the `ch
 **Resolution: CONVERGED IN SUBSTANCE — round cap reached, no open disagreement.**
 Act 1 (grill, 11 questions) locked intent with the user; Act 2 ran the full MAX_ROUNDS=5 with Codex (gpt-5.6-terra). The literal Round-5 verdict is REVISE, but this is **not a deadlock**: every one of Codex's ~29 findings across 5 rounds was *accepted* (a handful with logged arbiter nuances, zero rejected outright), and the Round-5 item was a single trivial one-field fix I agreed with and folded in. Codex was narrowing to progressively smaller edges (R3: 6 findings → R4: 1 → R5: 1 micro edge). There is **no outstanding point of disagreement to hand the user as a tie-break** — the only truly open item is a product decision the grill deferred to sign-off ("which cuts, if any"). No code written during either act.
 
+Cuts decision (user, at sign-off): *"dealer's choice, make it pretty and useful."* → all three restructures adopted, nothing removed: verdict → dismissible overlay; setup → one dense pane; awaiting-user → inline log-rail prompt.
+
+## Act 3 — Build
+Builder: Codex (gpt-5.6-terra, reasoning high) — codex-cli 0.144.0, `codex exec --yolo`, one shot, 0 fix rounds. Branch `feat/mission-control-ui`.
+
+### Round 1 — Codex build
+Implemented the full Mission Control cockpit + additive Rust telemetry. Files: `sse.rs` (Anthropic `message_start` input-usage + fixture), `krunch-engine/lib.rs` (`SeatUsage`, `RoundTelemetry`, `seat_seq`, post-guard metrics, accepted-attempt usage emission), `deliberation.rs` tests (telemetry ordering + retry dedupe), `types.ts` (wire mirror), `deliberation.ts` (totals/pricing/stream-gap/RAF/log-ring/convergence), new `telemetry.ts` + `shortcuts.ts`, `App.vue` cockpit shell, `style.css` tactical palette + CRT + reduced-motion, Departure Mono font (13.9 KB), new `CockpitStatusBar`/`CommandPalette`/`EventLogRail`, rebuilt `SeatCard`/`MediatorPanel`/`ConvergenceStrip`/`SeatEditor`/screens, `AwaitingUserModal` → inline stub. Proof reported green.
+Deviations: (1) no frontend test runner exists → store tests enumerated but not added; (2) no browser surface in Codex's env → preview left to Claude.
+
+### Claude's verdict — APPROVED
+Read the full diff like a PR; verified the high-risk surfaces against real code:
+- **Anthropic input usage** parsed on `message_start`, nullability preserved, and `http.rs` merges usage across deltas with `is_some()` guards so `message_delta`'s `None` can't clobber input — the real-input-tokens gap is genuinely closed.
+- **Engine emission** faithful: `SeatUsage` only post-`accept_attempt` with real usage + `emitted_seat_chunk_count`; `RoundTelemetry` (post-guard `effective`) before `RoundComplete`; per-sink `seat_seq` from 0 alongside untouched shared `seq`.
+- **Store** correct: usage dedup by `round:seat:attempt`; stream-gap handles the zero-chunk completion (`0===0 && -1===-1` → not incomplete); RAF token batching ~30fps with `instantTokens` bypass; convergence from backend telemetry only.
+- **Pricing** exact-origin match (`api.openai.com`/`api.anthropic.com`), `null` unless every completion has both counts + known model — never fabricated; totals labeled `exact`/`partial`.
+Proof re-run by Claude: `npm run build` ✓ (type-check + bundle, Departure Mono 13.9 KB), `cargo test` ✓ **99 passed / 0 failed**.
+Browser verification (Codex couldn't): setup (dense config pane, preflight, shortcut hints), room (cockpit grid, cyan mediator, LATCHED seats + stances, convergence meter, event-log rail, `est. —`), `⌘K` palette, verdict overlay ("CONSENSUS LOCKED" in Departure Mono, "accepted-completion tokens" label, × dismiss), deadlock (ember-red + session-dump export). **No console errors on any phase.**
+Minor polish (non-blocking, for user's call): QUORUM input shows the raw float `0.6666…`; default model `claude-sonnet-5` not in the price table so cost shows `—` (honest). 0 fix rounds needed.
+

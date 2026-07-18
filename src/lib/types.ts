@@ -82,12 +82,14 @@ export type EngineEvent =
   | { type: "state_changed"; session: string; state: SessionState }
   | { type: "round_started"; session: string; round: number }
   | { type: "seat_started"; session: string; round: number; seat: string; attempt: number }
-  | { type: "token"; session: string; round: number; seat: string; attempt: number; seq: number; text: string }
+  | { type: "token"; session: string; round: number; seat: string; attempt: number; seq: number; seat_seq: number; text: string }
+  | { type: "seat_usage"; session: string; round: number; seat: string; attempt: number; input_tokens: number | null; output_tokens: number | null; emitted_seat_chunk_count: number }
   | { type: "seat_truncated"; session: string; round: number; seat: string; cause: string }
   | { type: "stance"; session: string; round: number; seat: string; stance: string; confidence: number }
   | { type: "seat_abstained"; session: string; round: number; seat: string; reason: string }
   | { type: "ruling"; session: string; round: number; ruling: RulingKind; summary: string; next_focus: string }
   | { type: "consensus_downgraded"; session: string; round: number; cluster_fraction: number; mean_confidence: number }
+  | { type: "round_telemetry"; session: string; round: number; effective_ruling: RulingKind; cluster_fraction: number; mean_confidence: number }
   | { type: "round_complete"; session: string; round: number }
   | { type: "awaiting_user"; session: string; round: number; questions: string[] }
   | { type: "verdict"; session: string; outcome: SessionState; text: string }
