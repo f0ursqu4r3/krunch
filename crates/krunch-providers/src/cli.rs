@@ -2,6 +2,12 @@
 //! authenticate via the user's subscription — no API key. The prompt is the
 //! concatenated messages.
 //!
+//! Seats run *clean-room*: both CLIs are told to skip the user's personal setup
+//! (hooks, CLAUDE.md/AGENTS.md, plugins, skills, MCP servers, session persistence),
+//! because that setup otherwise fires SessionStart hooks on every seat attempt,
+//! injects tens of thousands of tokens of user context into each panelist prompt,
+//! and skews panelist behavior with the user's personal instructions.
+//!
 //! Both CLIs default to a *buffered* output mode (`claude -p --output-format text`,
 //! plain `codex exec`) that withholds all stdout until the process exits — so the
 //! seat card would sit on "awaiting stream" for the whole generation, then dump the
@@ -78,7 +84,21 @@ fn parse_claude(v: &Value) -> Option<CliEvent> {
             }
             None
         }
-        "result" => Some(CliEvent::Usage(usage_from(v.get("usage")?))),
+        "result" => {
+            let u = v.get("usage")?;
+            let mut usage = usage_from(u);
+            // Claude reports cache writes/reads separately from `input_tokens`; the
+            // seat's real context size is the sum. (Codex needs no such fold — its
+            // `input_tokens` already includes `cached_input_tokens`.)
+            let cached: u64 = ["cache_creation_input_tokens", "cache_read_input_tokens"]
+                .iter()
+                .filter_map(|k| u.get(*k).and_then(Value::as_u64))
+                .sum();
+            if cached > 0 {
+                usage.input_tokens = Some(usage.input_tokens.unwrap_or(0) + cached as u32);
+            }
+            Some(CliEvent::Usage(usage))
+        }
         _ => None,
     }
 }
@@ -220,6 +240,15 @@ impl CliAgent {
     /// The program + args for this CLI (pure, for testing). Both use realtime JSONL
     /// output so tokens stream live rather than dumping at process exit; claude's
     /// stream-json print mode additionally requires `--verbose`.
+    ///
+    /// Both also get clean-room flags so a seat never inherits the user's personal
+    /// setup. For claude that is `--safe-mode` (disables CLAUDE.md, hooks, skills,
+    /// plugins, MCP; auth and model selection still work — unlike `--bare`, which
+    /// refuses OAuth/keychain auth and would break subscription seats), plus no
+    /// session persistence, no MCP outside `--mcp-config`, and no built-in tools
+    /// (`--tools ""` — panelists only emit text, and it keeps tool schemas out of
+    /// the prompt). For codex that is `--ignore-user-config` (auth still works),
+    /// no execpolicy rules, no session files, and no AGENTS.md project docs.
     fn command_args(&self, prompt: &str) -> (String, Vec<String>) {
         match self.kind {
             CliKind::Claude => {
@@ -230,6 +259,11 @@ impl CliAgent {
                     "stream-json".into(),
                     "--include-partial-messages".into(),
                     "--verbose".into(),
+                    "--safe-mode".into(),
+                    "--no-session-persistence".into(),
+                    "--strict-mcp-config".into(),
+                    "--tools".into(),
+                    String::new(),
                 ];
                 if let Some(m) = &self.model {
                     if !m.trim().is_empty() {
@@ -241,7 +275,17 @@ impl CliAgent {
             }
             CliKind::Codex => (
                 "codex".into(),
-                vec!["exec".into(), "--json".into(), "--skip-git-repo-check".into(), prompt.to_string()],
+                vec![
+                    "exec".into(),
+                    "--json".into(),
+                    "--skip-git-repo-check".into(),
+                    "--ignore-user-config".into(),
+                    "--ignore-rules".into(),
+                    "--ephemeral".into(),
+                    "-c".into(),
+                    "project_doc_max_bytes=0".into(),
+                    prompt.to_string(),
+                ],
             ),
         }
     }
@@ -371,6 +415,20 @@ mod tests {
     }
 
     #[test]
+    fn claude_usage_folds_cache_tokens_into_input() {
+        // On a warm prompt cache, claude puts nearly all context in the cache fields
+        // and `input_tokens` alone would report a misleading ~10 tokens.
+        let result = r#"{"type":"result","usage":{"input_tokens":10,"cache_creation_input_tokens":11220,"cache_read_input_tokens":20477,"output_tokens":72}}"#;
+        assert_eq!(
+            CliKind::Claude.parse_line(result),
+            Some(CliEvent::Usage(Usage {
+                input_tokens: Some(10 + 11220 + 20477),
+                output_tokens: Some(72)
+            }))
+        );
+    }
+
+    #[test]
     fn codex_parser_extracts_agent_messages_and_usage() {
         let msg = r#"{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"hello"}}"#;
         assert_eq!(CliKind::Codex.parse_line(msg), Some(CliEvent::Text("hello".into())));
@@ -434,6 +492,22 @@ mod tests {
     }
 
     #[test]
+    fn claude_command_is_clean_room() {
+        let a = CliAgent::new(CliKind::Claude, Some("claude-sonnet-5".into()));
+        let (_, args) = a.command_args("hello");
+        // No user hooks/CLAUDE.md/skills/plugins/MCP (but NOT --bare, which would
+        // reject subscription OAuth), no session files, no built-in tools.
+        assert!(args.contains(&"--safe-mode".to_string()));
+        assert!(!args.contains(&"--bare".to_string()));
+        assert!(args.contains(&"--no-session-persistence".to_string()));
+        assert!(args.contains(&"--strict-mcp-config".to_string()));
+        let tools_at = args.iter().position(|a| a == "--tools").expect("--tools present");
+        assert_eq!(args[tools_at + 1], "", "--tools takes an empty list");
+        // The variadic `--tools` must not swallow the flag that follows it.
+        assert_eq!(args[tools_at + 2], "--model");
+    }
+
+    #[test]
     fn codex_command_skips_git_check_and_model() {
         let a = CliAgent::new(CliKind::Codex, Some("ignored".into()));
         let (prog, args) = a.command_args("hello");
@@ -442,6 +516,21 @@ mod tests {
         assert!(args.contains(&"--json".to_string())); // realtime JSONL events
         assert!(args.contains(&"--skip-git-repo-check".to_string()));
         assert!(!args.contains(&"--model".to_string()));
+        // Prompt stays last so no flag can absorb it.
+        assert_eq!(args.last().map(String::as_str), Some("hello"));
+    }
+
+    #[test]
+    fn codex_command_is_clean_room() {
+        let a = CliAgent::new(CliKind::Codex, None);
+        let (_, args) = a.command_args("hello");
+        // No user config.toml (auth still works), no execpolicy rules, no session
+        // files, no AGENTS.md project docs.
+        assert!(args.contains(&"--ignore-user-config".to_string()));
+        assert!(args.contains(&"--ignore-rules".to_string()));
+        assert!(args.contains(&"--ephemeral".to_string()));
+        let c_at = args.iter().position(|a| a == "-c").expect("-c present");
+        assert_eq!(args[c_at + 1], "project_doc_max_bytes=0");
     }
 
     /// Real end-to-end streaming against the installed `claude` CLI. Ignored by
@@ -475,6 +564,11 @@ mod tests {
         assert!(chunks.len() > 1, "expected incremental deltas, got {}: {chunks:?}", chunks.len());
         assert!(completion.text.contains('1') && completion.text.contains("15"));
         assert!(completion.usage.output_tokens.is_some(), "usage should be captured");
+        // Clean-room check: with the user's hooks/CLAUDE.md/plugins loaded, total
+        // input context (incl. cache tokens, which we fold in) runs 30k+; a
+        // --safe-mode seat with no tools is a few thousand.
+        let input = completion.usage.input_tokens.expect("input usage should be captured");
+        assert!(input < 10_000, "seat is not clean-room: {input} input tokens");
     }
 
     #[tokio::test]
