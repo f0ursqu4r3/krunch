@@ -29,7 +29,7 @@ impl OpenAiCompatibleAgent {
         // If the user gave only a host (no path, e.g. `http://127.0.0.1:1234`),
         // assume the conventional `/v1` prefix (LM Studio, vLLM, etc.). If they
         // already included a path (`.../v1`), append only the method.
-        let after_scheme = trimmed.splitn(2, "://").nth(1).unwrap_or(trimmed);
+        let after_scheme = trimmed.split_once("://").map(|(_, r)| r).unwrap_or(trimmed);
         if after_scheme.contains('/') {
             format!("{trimmed}/chat/completions")
         } else {

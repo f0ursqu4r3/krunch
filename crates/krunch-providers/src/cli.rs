@@ -5,7 +5,7 @@
 use std::process::Stdio;
 
 use async_trait::async_trait;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::AsyncReadExt;
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 
@@ -20,6 +20,85 @@ use crate::types::{
 pub enum CliKind {
     Claude,
     Codex,
+}
+
+/// Incremental UTF-8 decoder for byte-chunk streaming. Bytes arrive from the child
+/// in arbitrary reads that may split a multibyte character; this emits only the
+/// complete-character prefix and buffers the incomplete tail for the next read.
+#[derive(Default)]
+struct Utf8Streamer {
+    pending: Vec<u8>,
+}
+
+impl Utf8Streamer {
+    /// Feed raw bytes; return whatever newly decodes to valid UTF-8.
+    fn push(&mut self, bytes: &[u8]) -> String {
+        self.pending.extend_from_slice(bytes);
+        match std::str::from_utf8(&self.pending) {
+            Ok(s) => {
+                let out = s.to_string();
+                self.pending.clear();
+                out
+            }
+            Err(e) => {
+                let valid = e.valid_up_to();
+                // Safe: `valid_up_to` is a validated boundary.
+                let out = String::from_utf8_lossy(&self.pending[..valid]).into_owned();
+                self.pending.drain(..valid);
+                // If the tail is longer than any real char, it's genuinely
+                // malformed — flush it lossily so we never stall.
+                if self.pending.len() > 3 {
+                    let rest = String::from_utf8_lossy(&self.pending).into_owned();
+                    self.pending.clear();
+                    return out + &rest;
+                }
+                out
+            }
+        }
+    }
+
+    /// Flush any buffered tail at end of stream (lossily if incomplete).
+    fn finish(&mut self) -> String {
+        if self.pending.is_empty() {
+            return String::new();
+        }
+        let out = String::from_utf8_lossy(&self.pending).into_owned();
+        self.pending.clear();
+        out
+    }
+}
+
+/// Read a child's stdout in byte chunks, streaming decoded text to `sink` as it
+/// arrives, and return the full assembled text. Generic over the reader so the
+/// streaming behavior is unit-testable without spawning a process.
+async fn pump<R: tokio::io::AsyncRead + Unpin>(
+    reader: &mut R,
+    sink: &mut dyn TokenSink,
+) -> Result<String, ProviderError> {
+    let mut streamer = Utf8Streamer::default();
+    let mut text = String::new();
+    let mut buf = [0u8; 4096];
+    loop {
+        let n = reader.read(&mut buf).await.map_err(|e| ProviderError::Transient {
+            kind: TransientKind::Network,
+            status: None,
+            detail: e.to_string(),
+        })?;
+        if n == 0 {
+            break;
+        }
+        let chunk = streamer.push(&buf[..n]);
+        if !chunk.is_empty() {
+            text.push_str(&chunk);
+            sink.on_token(&chunk);
+        }
+    }
+    let tail = streamer.finish();
+    if !tail.is_empty() {
+        text.push_str(&tail);
+        sink.on_token(&tail);
+    }
+    Ok(text)
 }
 
 /// A seat backed by a local CLI.
@@ -97,32 +176,18 @@ impl Agent for CliAgent {
                 detail: format!("failed to spawn `{program}`: {e} (is it installed and on PATH?)"),
             })?;
 
-        let stdout = child.stdout.take().expect("piped stdout");
-        let mut lines = BufReader::new(stdout).lines();
-        let mut text = String::new();
+        let mut stdout = child.stdout.take().expect("piped stdout");
 
-        let read = async {
-            while let Some(line) = lines.next_line().await.map_err(|e| ProviderError::Transient {
-                kind: TransientKind::Network,
-                status: None,
-                detail: e.to_string(),
-            })? {
-                let chunk = format!("{line}\n");
-                text.push_str(&chunk);
-                sink.on_token(&chunk);
-            }
-            Ok::<(), ProviderError>(())
-        };
-
+        // Byte-chunk streaming: emit tokens as fast as the CLI flushes stdout.
         let outcome = tokio::select! {
             _ = cancel.cancelled() => {
                 let _ = child.start_kill();
                 return Err(ProviderError::Cancelled);
             }
-            r = tokio::time::timeout(budget.total_timeout, read) => r,
+            r = tokio::time::timeout(budget.total_timeout, pump(&mut stdout, sink)) => r,
         };
 
-        match outcome {
+        let text = match outcome {
             Err(_elapsed) => {
                 let _ = child.start_kill();
                 return Err(ProviderError::Transient {
@@ -132,8 +197,8 @@ impl Agent for CliAgent {
                 });
             }
             Ok(Err(e)) => return Err(e),
-            Ok(Ok(())) => {}
-        }
+            Ok(Ok(t)) => t,
+        };
 
         let status = child.wait().await.map_err(|e| ProviderError::Transient {
             kind: TransientKind::Network,
@@ -165,6 +230,47 @@ impl Agent for CliAgent {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn utf8_streamer_handles_a_split_multibyte_char() {
+        let mut s = Utf8Streamer::default();
+        // "é" is 0xC3 0xA9 — split across two reads.
+        assert_eq!(s.push(b"H\xc3"), "H"); // trailing 0xC3 buffered
+        assert_eq!(s.push(b"\xa9llo"), "éllo"); // completes é, then llo
+        assert_eq!(s.finish(), "");
+    }
+
+    #[test]
+    fn utf8_streamer_flushes_tail_on_finish() {
+        let mut s = Utf8Streamer::default();
+        assert_eq!(s.push(b"ab"), "ab");
+        assert_eq!(s.push(b"\xe2\x82"), ""); // first 2 bytes of € (3-byte char)
+        assert_eq!(s.push(b"\xac"), "€"); // completes €
+        assert_eq!(s.finish(), "");
+    }
+
+    #[tokio::test]
+    async fn pump_reassembles_progressive_chunks() {
+        // A duplex pipe lets us write bytes in arbitrary chunks (incl. a split
+        // multibyte char) and confirm the sink sees them live and reassembled.
+        // Tiny capacity forces the writer to hand off in small pieces, so pump
+        // performs multiple reads — including across the split 😀 (4 bytes).
+        let (mut w, mut r) = tokio::io::duplex(2);
+        let writer = tokio::spawn(async move {
+            use tokio::io::AsyncWriteExt;
+            w.write_all(b"Hel").await.unwrap();
+            w.write_all(b"lo \xf0\x9f").await.unwrap(); // first half of 😀
+            w.write_all(b"\x98\x80!").await.unwrap(); // second half + "!"
+            drop(w);
+        });
+
+        let mut chunks: Vec<String> = Vec::new();
+        let text = pump(&mut r, &mut |c: &str| chunks.push(c.to_string())).await.unwrap();
+        writer.await.unwrap();
+
+        assert_eq!(text, "Hello 😀!"); // reassembled correctly across split reads
+        assert_eq!(chunks.concat(), "Hello 😀!");
+    }
 
     #[test]
     fn claude_command_includes_model() {
