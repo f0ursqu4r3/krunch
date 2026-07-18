@@ -4,6 +4,7 @@ members = [
     "crates/krunch-core",
     "crates/krunch-providers",
     "crates/krunch-store",
+    "crates/krunch-engine",
     "src-tauri",
 ]
 
