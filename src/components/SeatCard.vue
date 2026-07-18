@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 import type { SeatConfig } from "@/lib/types";
 import { useDeliberation } from "@/stores/deliberation";
 import { measure } from "@/lib/pretext";
+import StreamMarkdown from "@/components/StreamMarkdown.vue";
 
 const props = defineProps<{ seat: SeatConfig; index: number }>();
 const store = useDeliberation(); const lines = ref(0);
@@ -21,7 +22,7 @@ const ttft = computed(() => live.value?.firstTokenAt && live.value.startedAt ? `
       <span class="shrink-0 font-mono text-[9px]" :class="state[1]">{{ state[0] }}</span>
     </header>
     <div class="min-h-0 flex-1 overflow-y-auto px-3 py-3 text-[11px] leading-[1.7] text-foreground/90">
-      <p v-if="live?.text" class="whitespace-pre-wrap break-words">{{ live.text }}<span v-if="live.status === 'streaming'" class="cursor text-brass">▋</span></p>
+      <StreamMarkdown v-if="live?.text" :text="live.text" :streaming="live.status === 'streaming'" cursor-class="text-brass" />
       <p v-else class="text-fg-faint">&gt; awaiting stream<span class="cursor">_</span></p>
       <p v-if="live?.reason" class="mt-2 text-deadlock">! {{ live.reason }}</p>
     </div>
