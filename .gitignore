@@ -1,0 +1,20 @@
+# Rust / Cargo
+/target
+**/target
+
+# Node / frontend
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor / OS
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+*.log
+
+# krunch runtime data (SQLite lives in the OS app-data dir, but ignore any stray local db)
+*.sqlite
+*.sqlite-*

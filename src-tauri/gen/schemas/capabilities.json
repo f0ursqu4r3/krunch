@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default capability for the main krunch window. Locked to the minimum: core IPC + opener. Deliberation commands are plain #[tauri::command]s and need no plugin permission.","local":true,"windows":["main"],"permissions":["core:default","opener:default"]}}
