@@ -5,6 +5,7 @@ import SeatCard from "@/components/SeatCard.vue";
 import MediatorPanel from "@/components/MediatorPanel.vue";
 import ConvergenceStrip from "@/components/ConvergenceStrip.vue";
 import AwaitingUserModal from "@/components/AwaitingUserModal.vue";
+import { Button } from "@/components/ui/button";
 
 const store = useDeliberation();
 
@@ -37,10 +38,10 @@ const rounds = computed(() => Array.from({ length: store.maxRounds }, (_, i) => 
               r === store.currentRound ? 'w-6 bg-brass candle' : 'w-1.5 bg-surface-3',
             ]" />
         </div>
-        <button @click="store.abandon()"
-          class="rounded-full border border-line px-3.5 py-1.5 text-xs text-fg-muted transition hover:border-deadlock/50 hover:text-deadlock">
+        <Button variant="outline" size="sm" @click="store.abandon()"
+          class="rounded-full border-line text-fg-muted hover:border-deadlock/50 hover:text-deadlock">
           Adjourn
-        </button>
+        </Button>
       </div>
     </header>
 

@@ -1,11 +1,22 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { useDeliberation } from "@/stores/deliberation";
 import SeatEditor from "@/components/SeatEditor.vue";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ArrowRight, Plus, Sparkles } from "@lucide/vue";
 
 const store = useDeliberation();
 
-const fieldCls =
-  "w-full rounded-md border border-line bg-bg-deep/60 px-3 py-2 text-sm text-foreground outline-none transition focus:border-brass/60 focus:ring-1 focus:ring-brass/40";
+const modeHint = computed(() => ({
+  autonomous: "The panel decides alone and never pauses.",
+  batched: "The foreman interrupts you only when a question truly matters.",
+  interactive: "The panel pauses whenever it has an open question for you.",
+}[store.mode]));
 </script>
 
 <template>
@@ -25,10 +36,11 @@ const fieldCls =
             </p>
           </div>
         </div>
-        <button @click="store.loadDemoPanel()"
-          class="mt-1 shrink-0 rounded-full border border-line px-3.5 py-1.5 text-xs text-fg-muted transition hover:border-brass/50 hover:text-brass">
+        <Button variant="outline" size="sm" class="mt-1 rounded-full border-line text-fg-muted hover:border-brass/50 hover:text-brass"
+          @click="store.loadDemoPanel()">
+          <Sparkles data-icon="inline-start" />
           Seat a demo panel
-        </button>
+        </Button>
       </header>
 
       <!-- The question -->
@@ -37,9 +49,8 @@ const fieldCls =
           <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-brass/70">i.</span>
           <h2 class="font-display text-lg text-foreground">The question before the panel</h2>
         </div>
-        <textarea v-model="store.problem" rows="4"
-          placeholder="State the matter to be deliberated…"
-          class="w-full resize-none rounded-lg border border-line bg-surface/50 px-5 py-4 text-[15px] leading-relaxed text-foreground outline-none transition placeholder:text-fg-faint focus:border-brass/50 focus:bg-surface/80 focus:ring-1 focus:ring-brass/30" />
+        <Textarea v-model="store.problem" rows="4" placeholder="State the matter to be deliberated…"
+          class="resize-none rounded-lg border-line bg-surface/50 px-5 py-4 text-[15px] leading-relaxed md:text-[15px] focus-visible:border-brass/50 focus-visible:ring-brass/25" />
       </section>
 
       <!-- Chamber rules -->
@@ -48,23 +59,24 @@ const fieldCls =
           <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-brass/70">ii.</span>
           <h2 class="font-display text-lg text-foreground">Rules of the chamber</h2>
         </div>
-        <div class="grid grid-cols-[1.6fr_1fr_1fr] gap-4">
-          <label class="block">
-            <span class="mb-1.5 block text-xs font-medium text-fg-muted">When to pause for you</span>
-            <select v-model="store.mode" :class="fieldCls">
-              <option value="autonomous">Autonomous — decide alone</option>
-              <option value="batched">Batched — ask when it matters</option>
-              <option value="interactive">Interactive — ask each round</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="mb-1.5 block text-xs font-medium text-fg-muted">Rounds before deadlock</span>
-            <input v-model.number="store.maxRounds" type="number" min="1" max="64" :class="fieldCls" />
-          </label>
-          <label class="block">
-            <span class="mb-1.5 block text-xs font-medium text-fg-muted">Confidence to rule</span>
-            <input v-model.number="store.confidenceFloor" type="number" min="0" max="1" step="0.05" :class="fieldCls" />
-          </label>
+        <div class="grid grid-cols-[1.7fr_1fr_1fr] items-start gap-4">
+          <div class="flex flex-col gap-1.5">
+            <Label class="text-fg-muted">When to pause for you</Label>
+            <ToggleGroup v-model="store.mode" type="single" variant="outline" class="w-full">
+              <ToggleGroupItem value="autonomous" class="flex-1 data-[state=on]:border-brass/50 data-[state=on]:bg-brass/10 data-[state=on]:text-brass">Autonomous</ToggleGroupItem>
+              <ToggleGroupItem value="batched" class="flex-1 data-[state=on]:border-brass/50 data-[state=on]:bg-brass/10 data-[state=on]:text-brass">Batched</ToggleGroupItem>
+              <ToggleGroupItem value="interactive" class="flex-1 data-[state=on]:border-brass/50 data-[state=on]:bg-brass/10 data-[state=on]:text-brass">Interactive</ToggleGroupItem>
+            </ToggleGroup>
+            <p class="text-[11px] text-fg-faint">{{ modeHint }}</p>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <Label class="text-fg-muted">Rounds before deadlock</Label>
+            <Input v-model.number="store.maxRounds" type="number" min="1" max="64" class="bg-surface/50" />
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <Label class="text-fg-muted">Confidence to rule</Label>
+            <Input v-model.number="store.confidenceFloor" type="number" min="0" max="1" step="0.05" class="bg-surface/50" />
+          </div>
         </div>
       </section>
 
@@ -75,36 +87,40 @@ const fieldCls =
             <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-brass/70">iii.</span>
             <h2 class="font-display text-lg text-foreground">The panel</h2>
           </div>
-          <button @click="store.addPanelist()" :disabled="store.panelists.length >= 6"
-            class="rounded-full border border-line px-3.5 py-1.5 text-xs text-fg-muted transition hover:border-brass/50 hover:text-brass disabled:cursor-not-allowed disabled:opacity-40">
+          <Button variant="outline" size="sm" :disabled="store.panelists.length >= 6"
+            class="rounded-full border-line text-fg-muted hover:border-brass/50 hover:text-brass"
+            @click="store.addPanelist()">
+            <Plus data-icon="inline-start" />
             Seat another
-            <span class="ml-1 font-mono text-fg-faint">{{ store.panelists.length }}/6</span>
-          </button>
+            <span class="font-mono text-fg-faint">{{ store.panelists.length }}/6</span>
+          </Button>
         </div>
-        <div class="space-y-3">
+        <div class="flex flex-col gap-3">
           <SeatEditor v-if="store.mediator" :seat="store.mediator" />
           <SeatEditor v-for="p in store.panelists" :key="p.id" :seat="p" removable @remove="store.removeSeat(p.id)" />
         </div>
       </section>
 
       <!-- Objections -->
-      <div v-if="store.validation.length" class="rise mt-8 rounded-lg bg-surface/40 p-4 ring-1 ring-deadlock/25">
-        <p class="mb-1.5 font-mono text-[11px] uppercase tracking-[0.15em] text-deadlock">Before you convene</p>
-        <ul class="space-y-0.5 text-sm text-fg-muted">
-          <li v-for="(v, i) in store.validation" :key="i">— {{ v }}</li>
-        </ul>
-      </div>
-      <div v-if="store.startError" class="mt-4 rounded-lg bg-danger/10 px-4 py-2.5 text-sm text-danger ring-1 ring-danger/25">
-        {{ store.startError }}
-      </div>
+      <Alert v-if="store.validation.length" class="rise mt-8 border-deadlock/25 bg-surface/40">
+        <AlertTitle class="font-mono text-[11px] uppercase tracking-[0.15em] text-deadlock">Before you convene</AlertTitle>
+        <AlertDescription class="text-fg-muted">
+          <ul class="flex flex-col gap-0.5">
+            <li v-for="(v, i) in store.validation" :key="i">— {{ v }}</li>
+          </ul>
+        </AlertDescription>
+      </Alert>
+      <Alert v-if="store.startError" variant="destructive" class="mt-4">
+        <AlertDescription>{{ store.startError }}</AlertDescription>
+      </Alert>
 
       <!-- Convene -->
-      <button @click="store.start()" :disabled="store.validation.length > 0"
-        class="group mt-8 flex w-full items-center justify-center gap-3 rounded-xl bg-brass py-4 font-display text-lg text-primary-foreground transition hover:bg-brass-bright disabled:cursor-not-allowed disabled:bg-surface-3 disabled:text-fg-faint"
+      <Button size="lg" :disabled="store.validation.length > 0" @click="store.start()"
+        class="mt-8 h-14 w-full rounded-xl bg-brass text-primary-foreground hover:bg-brass-bright disabled:bg-surface-3 disabled:text-fg-faint"
         style="box-shadow: 0 8px 40px -12px color-mix(in oklch, var(--brass) 60%, transparent);">
-        <span>Convene the panel</span>
-        <span class="transition-transform group-hover:translate-x-0.5" aria-hidden>→</span>
-      </button>
+        <span class="font-display text-lg">Convene the panel</span>
+        <ArrowRight data-icon="inline-end" />
+      </Button>
     </div>
   </div>
 </template>

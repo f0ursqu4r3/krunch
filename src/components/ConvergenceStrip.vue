@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useDeliberation } from "@/stores/deliberation";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 
 const store = useDeliberation();
 const panelistIds = computed(() => store.panelists.map((p) => p.id));
@@ -18,17 +20,20 @@ const rulingDot: Record<string, string> = {
 </script>
 
 <template>
-  <div class="rise flex h-full flex-col rounded-xl border border-line bg-surface/40" style="animation-delay: 120ms">
-    <header class="border-b border-line/60 px-4 py-3">
+  <Card class="rise h-full gap-0 border-line bg-surface/40 py-0" style="animation-delay: 120ms">
+    <CardHeader class="border-b border-line/60 px-4 py-3">
       <h3 class="font-display text-sm text-foreground">The tally</h3>
       <p class="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-faint">conviction by round</p>
-    </header>
+    </CardHeader>
 
-    <div v-if="store.rounds.length === 0" class="grid flex-1 place-items-center px-4">
-      <p class="text-center font-display text-sm italic text-fg-faint">No rounds have closed.<br />The room is still speaking.</p>
-    </div>
+    <Empty v-if="store.rounds.length === 0" class="flex-1">
+      <EmptyHeader>
+        <EmptyTitle class="font-display text-sm italic text-fg-faint">No rounds have closed</EmptyTitle>
+        <EmptyDescription class="text-fg-faint/70">The room is still speaking.</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
 
-    <div v-else class="flex-1 overflow-auto p-3">
+    <CardContent v-else class="flex-1 overflow-auto p-3">
       <table class="w-full border-separate border-spacing-1.5 text-[11px]">
         <thead>
           <tr>
@@ -60,6 +65,6 @@ const rulingDot: Record<string, string> = {
           </tr>
         </tbody>
       </table>
-    </div>
-  </div>
+    </CardContent>
+  </Card>
 </template>

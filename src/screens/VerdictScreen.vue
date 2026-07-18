@@ -2,6 +2,10 @@
 import { computed, ref } from "vue";
 import { useDeliberation } from "@/stores/deliberation";
 import type { SessionState } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Copy, FileDown, RefreshCw } from "@lucide/vue";
 
 const store = useDeliberation();
 const copied = ref(false);
@@ -73,18 +77,19 @@ async function downloadExport() {
             {{ store.rounds.length }} {{ store.rounds.length === 1 ? "round" : "rounds" }} deliberated
           </p>
         </div>
-        <button @click="store.backToSetup()"
-          class="mt-1 shrink-0 rounded-full border border-line px-4 py-2 text-xs text-fg-muted transition hover:border-brass/50 hover:text-brass">
+        <Button variant="outline" size="sm" @click="store.backToSetup()"
+          class="mt-1 shrink-0 rounded-full border-line text-fg-muted hover:border-brass/50 hover:text-brass">
+          <RefreshCw data-icon="inline-start" />
           Convene anew
-        </button>
+        </Button>
       </header>
 
       <!-- The ruling -->
       <section v-if="store.verdict" class="rise mt-10" style="animation-delay: 80ms">
         <div class="mb-5 flex items-center gap-3">
-          <span class="h-px flex-1 bg-line" />
-          <span class="font-mono text-[10px] uppercase tracking-[0.25em] text-brass/70">the ruling</span>
-          <span class="h-px flex-1 bg-line" />
+          <Separator class="flex-1 bg-line" />
+          <span class="shrink-0 font-mono text-[10px] uppercase tracking-[0.25em] text-brass/70">the ruling</span>
+          <Separator class="flex-1 bg-line" />
         </div>
         <article class="space-y-4">
           <template v-for="(b, i) in blocks" :key="i">
@@ -101,24 +106,28 @@ async function downloadExport() {
       </section>
 
       <!-- Terminal failure -->
-      <section v-else-if="store.failure" class="rise mt-10 rounded-xl bg-surface/40 p-6 ring-1 ring-deadlock/20" style="animation-delay: 80ms">
-        <p class="text-[15px] leading-relaxed text-fg-muted">
-          The deliberation ended in <span class="text-foreground">{{ store.failure.state }}</span> before a verdict could be synthesized.
-        </p>
-        <p class="mt-3 font-mono text-sm text-deadlock">{{ store.failure.reason }}</p>
-        <p class="mt-5 text-xs text-fg-faint">The record up to the last durable round remains on file.</p>
-      </section>
+      <Alert v-else-if="store.failure" class="rise mt-10 border-deadlock/20 bg-surface/40 p-6" style="animation-delay: 80ms">
+        <AlertDescription class="flex flex-col gap-3">
+          <p class="text-[15px] leading-relaxed text-fg-muted">
+            The deliberation ended in <span class="text-foreground">{{ store.failure.state }}</span> before a verdict could be synthesized.
+          </p>
+          <p class="font-mono text-sm text-deadlock">{{ store.failure.reason }}</p>
+          <p class="mt-2 text-xs text-fg-faint">The record up to the last durable round remains on file.</p>
+        </AlertDescription>
+      </Alert>
 
       <!-- File the record -->
       <div class="rise mt-10 flex items-center gap-3" style="animation-delay: 140ms">
-        <button @click="copyExport"
-          class="rounded-full border border-line px-4 py-2 text-xs text-fg-muted transition hover:border-brass/50 hover:text-brass">
+        <Button variant="outline" size="sm" @click="copyExport"
+          class="rounded-full border-line text-fg-muted hover:border-brass/50 hover:text-brass">
+          <Copy data-icon="inline-start" />
           {{ copied ? "copied to clipboard" : "copy the record" }}
-        </button>
-        <button @click="downloadExport"
-          class="rounded-full border border-line px-4 py-2 text-xs text-fg-muted transition hover:border-brass/50 hover:text-brass">
+        </Button>
+        <Button variant="outline" size="sm" @click="downloadExport"
+          class="rounded-full border-line text-fg-muted hover:border-brass/50 hover:text-brass">
+          <FileDown data-icon="inline-start" />
           file as markdown
-        </button>
+        </Button>
       </div>
     </div>
   </div>

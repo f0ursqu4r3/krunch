@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { reactive, watch } from "vue";
 import { useDeliberation } from "@/stores/deliberation";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 const store = useDeliberation();
 const answers = reactive<Record<number, string>>({});
@@ -20,48 +26,40 @@ async function submit() {
   for (const k of Object.keys(answers)) delete answers[Number(k)];
   await store.submitAnswers(pairs);
 }
+const prevent = (e: Event) => e.preventDefault();
 </script>
 
 <template>
-  <Transition
-    enter-active-class="transition duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-    enter-from-class="opacity-0" enter-to-class="opacity-100">
-    <div v-if="store.awaiting" class="fixed inset-0 z-50 flex items-end justify-center p-5"
-      style="background: radial-gradient(80% 60% at 50% 100%, color-mix(in oklch, var(--brass) 10%, transparent), transparent), color-mix(in oklch, var(--bg-deep) 78%, transparent);">
-      <Transition appear
-        enter-active-class="transition duration-400 ease-[cubic-bezier(0.16,1,0.3,1)]"
-        enter-from-class="translate-y-8 opacity-0" enter-to-class="translate-y-0 opacity-100">
-        <div class="w-full max-w-xl overflow-hidden rounded-2xl border border-brass/25 bg-surface"
-          style="box-shadow: 0 -20px 80px -30px color-mix(in oklch, var(--brass) 60%, transparent);">
-          <div class="flex items-center gap-3 border-b border-brass/15 px-6 py-4">
-            <span class="grid size-8 place-items-center rounded-full bg-brass/12 font-display text-brass ring-1 ring-brass/30">§</span>
-            <div>
-              <h2 class="font-display text-lg text-foreground">The foreman turns to you</h2>
-              <p class="font-mono text-[10px] uppercase tracking-[0.14em] text-brass/60">
-                round {{ store.awaiting.round + 1 }} · deliberation paused
-              </p>
-            </div>
-          </div>
-
-          <div class="max-h-[50vh] space-y-5 overflow-y-auto px-6 py-5">
-            <div v-for="(q, i) in store.awaiting.questions" :key="i">
-              <label class="mb-2 block text-sm leading-snug text-foreground">{{ q }}</label>
-              <textarea v-model="answers[i]" rows="2" placeholder="Your answer joins the record…"
-                class="w-full resize-y rounded-lg border border-line bg-bg-deep/50 px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-fg-faint focus:border-brass/50 focus:ring-1 focus:ring-brass/30" />
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between gap-3 border-t border-line/60 px-6 py-4">
-            <button @click="store.abandon()" class="text-xs text-fg-faint transition hover:text-deadlock">
-              Adjourn the panel
-            </button>
-            <button @click="submit"
-              class="rounded-full bg-brass px-5 py-2 font-display text-sm text-primary-foreground transition hover:bg-brass-bright">
-              Return to deliberation
-            </button>
-          </div>
+  <Dialog :open="!!store.awaiting">
+    <DialogContent :show-close-button="false" @interact-outside="prevent" @escape-key-down="prevent"
+      class="max-w-xl gap-0 border-brass/25 bg-surface p-0"
+      style="box-shadow: 0 20px 80px -30px color-mix(in oklch, var(--brass) 55%, transparent);">
+      <DialogHeader class="flex-row items-center gap-3 space-y-0 border-b border-brass/15 px-6 py-4">
+        <span class="grid size-8 shrink-0 place-items-center rounded-full bg-brass/12 font-display text-brass ring-1 ring-brass/30">§</span>
+        <div class="text-left">
+          <DialogTitle class="font-display text-lg text-foreground">The foreman turns to you</DialogTitle>
+          <DialogDescription class="font-mono text-[10px] uppercase tracking-[0.14em] text-brass/60">
+            round {{ (store.awaiting?.round ?? 0) + 1 }} · deliberation paused
+          </DialogDescription>
         </div>
-      </Transition>
-    </div>
-  </Transition>
+      </DialogHeader>
+
+      <div class="flex max-h-[50vh] flex-col gap-5 overflow-y-auto px-6 py-5">
+        <div v-for="(q, i) in store.awaiting?.questions ?? []" :key="i" class="flex flex-col gap-2">
+          <Label class="text-sm leading-snug text-foreground">{{ q }}</Label>
+          <Textarea v-model="answers[i]" rows="2" placeholder="Your answer joins the record…"
+            class="resize-y bg-bg-deep/50" />
+        </div>
+      </div>
+
+      <DialogFooter class="items-center justify-between border-t border-line/60 px-6 py-4 sm:justify-between">
+        <Button variant="ghost" size="sm" class="text-fg-faint hover:text-deadlock" @click="store.abandon()">
+          Adjourn the panel
+        </Button>
+        <Button class="rounded-full bg-brass font-display text-primary-foreground hover:bg-brass-bright" @click="submit">
+          Return to deliberation
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
