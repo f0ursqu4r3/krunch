@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { computed, reactive, ref } from "vue";
 import { api, onEngineEvent } from "@/lib/api";
 import { estimateAcceptedCost, summarizeAcceptedUsage, type AcceptedUsage } from "@/lib/telemetry";
+import { resolveSystemPrompt } from "@/lib/personas";
 import type {
   EngineEvent, InteractionMode, RulingKind, SeatConfig, SessionConfig, SessionState,
 } from "@/lib/types";
@@ -50,7 +51,7 @@ function newSeat(role: SeatConfig["role"], partial: Partial<SeatConfig> = {}): S
   return {
     id: crypto.randomUUID(), display_name: role === "mediator" ? "Mediator" : `Panelist ${uid}`,
     provider: "anthropic", base_url: "https://api.anthropic.com", model: "claude-sonnet-5",
-    system_prompt: "", sampling: { temperature: 0.7 }, credential_ref: "anthropic-default", role, ...partial,
+    system_prompt: "", sampling: { temperature: 0.7 }, personas: [], credential_ref: "anthropic-default", role, ...partial,
   };
 }
 
@@ -129,12 +130,20 @@ export const useDeliberation = defineStore("deliberation", () => {
     if (logLines.value.length > LOG_CAP) logLines.value.splice(0, logLines.value.length - LOG_CAP);
   }
   function buildConfig(): SessionConfig {
-    return { problem: problem.value, mode: mode.value, max_rounds: maxRounds.value, guard: { quorum_fraction: quorumFraction.value, confidence_floor: confidenceFloor.value }, seats: JSON.parse(JSON.stringify(seats.value)) };
+    const seatsResolved = seats.value.map((seat) => ({
+      ...JSON.parse(JSON.stringify(seat)),
+      system_prompt: resolveSystemPrompt(seat.personas, seat.system_prompt),
+    }));
+    return { problem: problem.value, mode: mode.value, max_rounds: maxRounds.value, guard: { quorum_fraction: quorumFraction.value, confidence_floor: confidenceFloor.value }, seats: seatsResolved };
   }
   function addPanelist() { if (panelists.value.length < 6) seats.value.push(newSeat("panelist")); }
   function loadDemoPanel() {
-    const demo = (role: SeatConfig["role"], display_name: string) => newSeat(role, { display_name, provider: "demo", base_url: "", model: "demo", credential_ref: "" });
-    seats.value = [demo("mediator", "Foreman (demo)"), demo("panelist", "Juror A (demo)"), demo("panelist", "Juror B (demo)")];
+    const demo = (role: SeatConfig["role"], display_name: string, personas: string[]) => newSeat(role, { display_name, provider: "demo", base_url: "", model: "demo", credential_ref: "", personas });
+    seats.value = [
+      demo("mediator", "Foreman (demo)", ["med.neutral_foreman"]),
+      demo("panelist", "Juror A (demo)", ["temp.optimist", "dom.designer"]),
+      demo("panelist", "Juror B (demo)", ["temp.skeptic", "dom.engineer"]),
+    ];
     if (!problem.value.trim()) problem.value = "Should our team adopt a four-day work week?";
   }
   function removeSeat(id: string) { seats.value = seats.value.filter((seat) => seat.id !== id); }

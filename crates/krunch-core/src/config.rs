@@ -72,6 +72,10 @@ pub struct SeatConfig {
     pub system_prompt: String,
     #[serde(default)]
     pub sampling: SamplingParams,
+    /// Ordered persona ids (frontend catalog). Recorded for the audit snapshot;
+    /// the engine does not read these — it consumes `system_prompt` only.
+    #[serde(default)]
+    pub personas: Vec<String>,
     pub credential_ref: String,
     pub role: Role,
 }
@@ -267,9 +271,44 @@ mod tests {
             model: "gpt-x".into(),
             system_prompt: "you are a juror".into(),
             sampling: SamplingParams::default(),
+            personas: vec![],
             credential_ref: "keychain-item-1".into(),
             role,
         }
+    }
+
+    #[test]
+    fn seat_config_personas_defaults_when_absent() {
+        // Existing stored configs have no `personas` key — must default to empty.
+        let json = r#"{
+            "id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Juror",
+            "provider": "demo",
+            "base_url": "",
+            "model": "demo",
+            "system_prompt": "you are a juror",
+            "credential_ref": "",
+            "role": "panelist"
+        }"#;
+        let seat: SeatConfig = serde_json::from_str(json).unwrap();
+        assert!(seat.personas.is_empty());
+    }
+
+    #[test]
+    fn seat_config_personas_roundtrip() {
+        let json = r#"{
+            "id": "00000000-0000-0000-0000-000000000001",
+            "display_name": "Juror",
+            "provider": "demo",
+            "base_url": "",
+            "model": "demo",
+            "system_prompt": "resolved text",
+            "credential_ref": "",
+            "role": "panelist",
+            "personas": ["temp.skeptic", "dom.engineer"]
+        }"#;
+        let seat: SeatConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(seat.personas, vec!["temp.skeptic".to_string(), "dom.engineer".to_string()]);
     }
 
     fn valid_config() -> SessionConfig {

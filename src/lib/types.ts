@@ -46,6 +46,7 @@ export interface SeatConfig {
   model: string;
   system_prompt: string;
   sampling: SamplingParams;
+  personas: string[];
   credential_ref: string;
   role: Role;
 }

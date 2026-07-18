@@ -23,6 +23,7 @@ fn seat(role: Role) -> SeatConfig {
         model: "m".into(),
         system_prompt: "sys".into(),
         sampling: SamplingParams::default(),
+        personas: vec![],
         credential_ref: "cred-1".into(),
         role,
     }

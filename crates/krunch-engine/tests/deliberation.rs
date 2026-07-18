@@ -161,6 +161,7 @@ fn seat(id: SeatId, role: Role) -> SeatConfig {
         model: "mock".into(),
         system_prompt: String::new(),
         sampling: SamplingParams::default(),
+        personas: vec![],
         credential_ref: "cred".into(),
         role,
     }
