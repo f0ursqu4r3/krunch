@@ -56,7 +56,16 @@ function newSeat(role: SeatConfig["role"], partial: Partial<SeatConfig> = {}): S
 }
 
 function blankLive(id: string): SeatLive {
-  return { id, text: "", status: "idle", lastSeq: -1, seatLastSeq: -1, receivedChunkCount: 0, streamIncomplete: false };
+  // Every optional key is listed explicitly: seat resets use Object.assign, which
+  // only overwrites keys present in the source — omitting one would leak stale
+  // state (stance, abstain reason, usage…) across rounds and retries.
+  return {
+    id, text: "", status: "idle",
+    stance: undefined, confidence: undefined, reason: undefined,
+    lastSeq: -1, seatLastSeq: -1, receivedChunkCount: 0, expectedChunkCount: undefined,
+    streamIncomplete: false, attempt: undefined, startedAt: undefined, firstTokenAt: undefined,
+    usage: undefined,
+  };
 }
 
 function resetSeatForRound(seat: SeatLive) {
@@ -243,11 +252,15 @@ export const useDeliberation = defineStore("deliberation", () => {
   async function init() { if (!unlisten) unlisten = await onEngineEvent(handle); }
   function backToSetup() { phase.value = "setup"; sessionId.value = null; }
   async function exportMarkdown(): Promise<string> { return sessionId.value ? api.exportSession(sessionId.value) : ""; }
+  async function saveDump(): Promise<string> {
+    if (!sessionId.value) throw new Error("no session");
+    return api.saveSessionDump(sessionId.value);
+  }
   function setReducedEffects(value: boolean) { instantTokens.value = value; }
   return {
     problem, mode, maxRounds, quorumFraction, confidenceFloor, seats, panelists, mediator, validation, addPanelist, removeSeat, loadDemoPanel,
     phase, sessionId, running, currentRound, live, mediatorId, mediatorText, rounds, awaiting, verdict, failure, finalState, startError,
     acceptedUsage, usageSummary, estimatedCost, approximateOutputRate, logLines, convergence,
-    init, start, submitAnswers, abandon, backToSetup, exportMarkdown, handle, setReducedEffects,
+    init, start, submitAnswers, abandon, backToSetup, exportMarkdown, saveDump, handle, setReducedEffects,
   };
 });

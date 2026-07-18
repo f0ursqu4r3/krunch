@@ -3,6 +3,8 @@ import { computed, ref, watch } from "vue";
 import type { SeatConfig } from "@/lib/types";
 import { useDeliberation } from "@/stores/deliberation";
 import { measure } from "@/lib/pretext";
+import { seatIdentity } from "@/lib/seat-identity";
+import { useStickToBottom } from "@/lib/stick-to-bottom";
 import StreamMarkdown from "@/components/StreamMarkdown.vue";
 
 const props = defineProps<{ seat: SeatConfig; index: number }>();
@@ -13,18 +15,28 @@ const state = computed(() => ({
   streaming: ["STREAM", "text-brass"], stance: ["LATCHED", "text-consensus"], abstained: ["ABSTAIN", "text-deadlock"], truncated: ["TRUNC", "text-brass"], idle: ["IDLE", "text-fg-faint"],
 }[live.value?.status ?? "idle"]));
 const ttft = computed(() => live.value?.firstTokenAt && live.value.startedAt ? `~${live.value.firstTokenAt - live.value.startedAt}ms TTFT` : "~— TTFT");
+const identity = computed(() => seatIdentity(props.seat));
+
+const scroller = ref<HTMLElement | null>(null);
+const { pinned, onScroll } = useStickToBottom(scroller, () => `${live.value?.text.length ?? 0}:${live.value?.reason ?? ""}`);
 </script>
 
 <template>
   <article :id="`seat-${index + 1}`" :data-seat-index="index" tabindex="-1" class="terminal-panel flex min-h-[12rem] min-w-0 flex-col overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-cyan" :class="[live?.status === 'stance' ? 'border-consensus latch' : live?.status === 'abstained' ? 'border-deadlock' : live?.status === 'streaming' ? 'border-brass' : '', live?.streamIncomplete ? 'shake' : '']">
     <header class="flex items-center justify-between gap-2 border-b border-line bg-bg-deep/40 px-3 py-2">
-      <div class="min-w-0"><span class="mr-2 text-cyan">[{{ String(index + 1).padStart(2, '0') }}]</span><span class="truncate font-mono text-xs text-foreground">{{ seat.display_name }}</span></div>
+      <div class="min-w-0">
+        <div class="flex min-w-0 items-baseline"><span class="mr-2 shrink-0 text-cyan">[{{ String(index + 1).padStart(2, '0') }}]</span><span class="truncate font-mono text-xs text-foreground">{{ seat.display_name }}</span></div>
+        <p v-if="identity" class="mt-0.5 truncate pl-7 font-mono text-[9px] text-fg-faint">{{ identity }}</p>
+      </div>
       <span class="shrink-0 font-mono text-[9px]" :class="state[1]">{{ state[0] }}</span>
     </header>
-    <div class="min-h-0 flex-1 overflow-y-auto px-3 py-3 text-[11px] leading-[1.7] text-foreground/90">
-      <StreamMarkdown v-if="live?.text" :text="live.text" :streaming="live.status === 'streaming'" cursor-class="text-brass" />
-      <p v-else class="text-fg-faint">&gt; awaiting stream<span class="cursor">_</span></p>
-      <p v-if="live?.reason" class="mt-2 text-deadlock">! {{ live.reason }}</p>
+    <div class="relative min-h-0 flex-1">
+      <div ref="scroller" class="h-full overflow-y-auto px-3 py-3 text-[11px] leading-[1.7] text-foreground/90" @scroll.passive="onScroll">
+        <StreamMarkdown v-if="live?.text" :text="live.text" :streaming="live.status === 'streaming'" cursor-class="text-brass" />
+        <p v-else class="text-fg-faint">&gt; awaiting stream<span class="cursor">_</span></p>
+        <p v-if="live?.reason" class="mt-2 text-deadlock">! {{ live.reason }}</p>
+      </div>
+      <button v-if="!pinned && live?.status === 'streaming'" class="absolute bottom-2 right-3 border border-brass/45 bg-bg-deep/90 px-2 py-0.5 font-mono text-[9px] text-brass hover:bg-brass/15" @click="scroller && (scroller.scrollTop = scroller.scrollHeight)">▼ follow</button>
     </div>
     <footer class="border-t border-line px-3 py-2 font-mono text-[9px] text-fg-faint">
       <div class="flex justify-between gap-2"><span>{{ ttft }}</span><span>{{ live?.usage?.outputTokens === null || !live?.usage ? '~— tok/s' : `~${live.usage.outputTokens} out` }}</span></div>

@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { useDeliberation } from "@/stores/deliberation";
+import { useStickToBottom } from "@/lib/stick-to-bottom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 const store = useDeliberation();
+const scroller = ref<HTMLElement | null>(null);
+const { onScroll } = useStickToBottom(scroller, () => store.logLines[store.logLines.length - 1]?.id ?? 0);
 const answers = reactive<Record<number, string>>({});
 const localTime = (time: number) => new Date(time).toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const prompt = computed(() => store.awaiting);
@@ -22,7 +25,7 @@ async function submit() {
       <span class="font-mono text-xs text-cyan">EVENT LOG</span>
       <span class="font-mono text-[9px] text-fg-faint">{{ store.logLines.length }}/180</span>
     </header>
-    <div class="min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[10px] leading-relaxed">
+    <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto p-3 font-mono text-[10px] leading-relaxed" @scroll.passive="onScroll">
       <p v-if="!store.logLines.length" class="text-fg-faint">[awaiting lifecycle events]</p>
       <p v-for="line in store.logLines" :key="line.id" class="break-words text-fg-muted"><span class="text-fg-faint">{{ localTime(line.receipt) }}</span> <span class="text-cyan">{{ line.kind }}</span> {{ line.text }}</p>
     </div>

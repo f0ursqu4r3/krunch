@@ -28,7 +28,15 @@ export const api = {
     invoke<boolean>("has_credential", { credentialRef }),
 
   exportSession: (sessionId: string) => invoke<string>("export_session", { sessionId }),
+
+  /** Write the dump to ~/Downloads natively and reveal it; returns the path. */
+  saveSessionDump: (sessionId: string) => invoke<string>("save_session_dump", { sessionId }),
 };
+
+/** Whether we're running inside the Tauri shell (vs. a plain-browser preview). */
+export function isTauri(): boolean {
+  return "__TAURI_INTERNALS__" in window;
+}
 
 /** Subscribe to engine events. Returns an unlisten function. */
 export function onEngineEvent(handler: (e: EngineEvent) => void): Promise<UnlistenFn> {
