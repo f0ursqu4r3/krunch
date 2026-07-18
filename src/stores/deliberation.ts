@@ -9,7 +9,7 @@ import type {
   SessionConfig,
   SessionState,
 } from "@/lib/types";
-import { isTerminal } from "@/lib/types";
+import { isTerminal, isLoopbackUrl, providerIsHttp } from "@/lib/types";
 
 type Phase = "setup" | "room" | "verdict";
 
@@ -95,9 +95,14 @@ export const useDeliberation = defineStore("deliberation", () => {
     if (p < 2 || p > 6) errs.push(`Need 2–6 panelists (have ${p}).`);
     if (maxRounds.value < 1 || maxRounds.value > 64) errs.push("Rounds must be 1–64.");
     for (const s of seats.value) {
-      if (!s.model.trim()) errs.push(`${s.display_name}: model is empty.`);
-      if (!s.base_url.trim()) errs.push(`${s.display_name}: base URL is empty.`);
-      if (!s.credential_ref.trim()) errs.push(`${s.display_name}: credential is empty.`);
+      // HTTP providers need url + model; a credential too unless the endpoint is
+      // loopback. CLI/Demo providers need none of these (M7).
+      if (providerIsHttp(s.provider)) {
+        if (!s.model.trim()) errs.push(`${s.display_name}: model is empty.`);
+        if (!s.base_url.trim()) errs.push(`${s.display_name}: base URL is empty.`);
+        if (!s.credential_ref.trim() && !isLoopbackUrl(s.base_url))
+          errs.push(`${s.display_name}: credential is empty.`);
+      }
     }
     return errs;
   });
@@ -114,6 +119,26 @@ export const useDeliberation = defineStore("deliberation", () => {
 
   function addPanelist() {
     if (panelists.value.length < 6) seats.value.push(newSeat("panelist"));
+  }
+
+  /** Fill the roster with offline demo seats — runs with no keys/network. */
+  function loadDemoPanel() {
+    const demo = (role: SeatConfig["role"], name: string) =>
+      newSeat(role, {
+        display_name: name,
+        provider: "demo",
+        base_url: "",
+        model: "demo",
+        credential_ref: "",
+      });
+    seats.value = [
+      demo("mediator", "Foreman (demo)"),
+      demo("panelist", "Juror A (demo)"),
+      demo("panelist", "Juror B (demo)"),
+    ];
+    if (!problem.value.trim()) {
+      problem.value = "Should our team adopt a four-day work week?";
+    }
   }
   function removeSeat(id: string) {
     seats.value = seats.value.filter((s) => s.id !== id);
@@ -291,7 +316,7 @@ export const useDeliberation = defineStore("deliberation", () => {
     // config
     problem, mode, maxRounds, quorumFraction, confidenceFloor, seats,
     panelists, mediator, validation,
-    addPanelist, removeSeat,
+    addPanelist, removeSeat, loadDemoPanel,
     // runtime
     phase, sessionId, running, currentRound, live, mediatorId, mediatorText,
     rounds, awaiting, verdict, failure, finalState, startError,

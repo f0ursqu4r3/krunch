@@ -13,8 +13,23 @@ use crate::ids::SeatId;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Provider {
+    /// Anthropic Messages API over HTTP (needs a key).
     Anthropic,
+    /// Any OpenAI-compatible `/chat/completions` endpoint (key, or key-free loopback).
     OpenAiCompatible,
+    /// Local `claude` CLI using the user's subscription auth (no key).
+    ClaudeCli,
+    /// Local `codex` CLI using the user's subscription auth (no key).
+    CodexCli,
+    /// Built-in offline demo agent (no key, no network).
+    Demo,
+}
+
+impl Provider {
+    /// True for providers that make an HTTP request with a stored credential.
+    pub fn is_http(self) -> bool {
+        matches!(self, Provider::Anthropic | Provider::OpenAiCompatible)
+    }
 }
 
 /// Generation parameters recorded in the audit snapshot and sent to the provider.
@@ -86,6 +101,13 @@ pub struct SessionConfig {
     #[serde(default)]
     pub guard: GuardThresholds,
     pub seats: Vec<SeatConfig>,
+}
+
+/// Cheap loopback detection for the validation relaxation (core has no URL parser;
+/// the app layer does a stricter canonical check before attaching a credential).
+pub fn is_loopback_url(base_url: &str) -> bool {
+    let u = base_url.to_ascii_lowercase();
+    u.contains("localhost") || u.contains("127.0.0.1") || u.contains("[::1]") || u.contains("::1")
 }
 
 /// Bounds enforced by validation (PLAN §10 / Terminology).
@@ -194,16 +216,21 @@ impl SessionConfig {
             }
         }
 
-        // Per-seat non-empty required fields.
+        // Per-seat required fields depend on the provider. HTTP providers need a
+        // base_url + model; a credential is required except for loopback endpoints
+        // (local servers like Ollama often need no auth). CLI/Demo providers need
+        // none of these — they use subscription auth or nothing (PLAN §9 / M7).
         for seat in &self.seats {
-            if seat.base_url.trim().is_empty() {
-                errs.push(ValidationError::EmptyBaseUrl { seat: seat.id });
-            }
-            if seat.model.trim().is_empty() {
-                errs.push(ValidationError::EmptyModel { seat: seat.id });
-            }
-            if seat.credential_ref.trim().is_empty() {
-                errs.push(ValidationError::EmptyCredentialRef { seat: seat.id });
+            if seat.provider.is_http() {
+                if seat.base_url.trim().is_empty() {
+                    errs.push(ValidationError::EmptyBaseUrl { seat: seat.id });
+                }
+                if seat.model.trim().is_empty() {
+                    errs.push(ValidationError::EmptyModel { seat: seat.id });
+                }
+                if seat.credential_ref.trim().is_empty() && !is_loopback_url(&seat.base_url) {
+                    errs.push(ValidationError::EmptyCredentialRef { seat: seat.id });
+                }
             }
         }
 
@@ -337,6 +364,41 @@ mod tests {
         let errs = c.validate().unwrap_err();
         assert!(errs.iter().any(|e| matches!(e, ValidationError::QuorumFractionOutOfRange { .. })));
         assert!(errs.iter().any(|e| matches!(e, ValidationError::ConfidenceFloorOutOfRange { .. })));
+    }
+
+    #[test]
+    fn loopback_http_needs_no_credential() {
+        let mut c = valid_config();
+        c.seats[1].provider = Provider::OpenAiCompatible;
+        c.seats[1].base_url = "http://localhost:11434/v1".into();
+        c.seats[1].credential_ref = "".into();
+        assert_eq!(c.validate(), Ok(()));
+    }
+
+    #[test]
+    fn cli_and_demo_seats_need_no_url_or_credential() {
+        let mut c = valid_config();
+        c.seats[1].provider = Provider::ClaudeCli;
+        c.seats[1].base_url = "".into();
+        c.seats[1].credential_ref = "".into();
+        c.seats[2].provider = Provider::Demo;
+        c.seats[2].base_url = "".into();
+        c.seats[2].model = "".into();
+        c.seats[2].credential_ref = "".into();
+        assert_eq!(c.validate(), Ok(()));
+    }
+
+    #[test]
+    fn remote_http_still_needs_a_credential() {
+        let mut c = valid_config();
+        c.seats[1].provider = Provider::OpenAiCompatible;
+        c.seats[1].base_url = "https://api.example.com/v1".into();
+        c.seats[1].credential_ref = "".into();
+        assert!(c
+            .validate()
+            .unwrap_err()
+            .iter()
+            .any(|e| matches!(e, ValidationError::EmptyCredentialRef { .. })));
     }
 
     #[test]

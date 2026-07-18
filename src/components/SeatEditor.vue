@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import type { SeatConfig } from "@/lib/types";
+import { isLoopbackUrl, providerIsHttp } from "@/lib/types";
 import { api } from "@/lib/api";
 
 const props = defineProps<{ seat: SeatConfig; removable?: boolean }>();
 defineEmits<{ remove: [] }>();
+
+const isHttp = computed(() => providerIsHttp(props.seat.provider));
+const needsKey = computed(() => isHttp.value && !isLoopbackUrl(props.seat.base_url));
+const isCli = computed(
+  () => props.seat.provider === "claude_cli" || props.seat.provider === "codex_cli",
+);
 
 const keyInput = ref("");
 const keySaved = ref<boolean | null>(null);
@@ -55,40 +62,57 @@ const inputCls =
       <label class="col-span-1 text-xs">
         <span class="mb-1 block text-muted-foreground">Provider</span>
         <select v-model="seat.provider" :class="inputCls">
-          <option value="anthropic">Anthropic</option>
-          <option value="open_ai_compatible">OpenAI-compatible</option>
+          <option value="anthropic">Anthropic (API key)</option>
+          <option value="open_ai_compatible">OpenAI-compatible / local</option>
+          <option value="claude_cli">Claude CLI (subscription)</option>
+          <option value="codex_cli">Codex CLI (subscription)</option>
+          <option value="demo">Demo (offline, no key)</option>
         </select>
       </label>
-      <label class="col-span-1 text-xs">
-        <span class="mb-1 block text-muted-foreground">Model</span>
+      <label class="col-span-1 text-xs" v-if="seat.provider !== 'demo'">
+        <span class="mb-1 block text-muted-foreground">Model{{ isCli ? " (optional)" : "" }}</span>
         <input v-model="seat.model" :class="inputCls" />
       </label>
-      <label class="col-span-2 text-xs">
-        <span class="mb-1 block text-muted-foreground">Base URL</span>
-        <input v-model="seat.base_url" :class="inputCls" />
+      <label class="col-span-2 text-xs" v-if="isHttp">
+        <span class="mb-1 block text-muted-foreground">
+          Base URL
+          <span v-if="isLoopbackUrl(seat.base_url)" class="ml-1 text-emerald-400">loopback · key-free</span>
+        </span>
+        <input v-model="seat.base_url" :class="inputCls" @blur="refreshKey" />
       </label>
       <label class="col-span-2 text-xs">
         <span class="mb-1 block text-muted-foreground">System prompt / persona</span>
         <textarea v-model="seat.system_prompt" rows="2" :class="inputCls" />
       </label>
-      <label class="col-span-1 text-xs">
-        <span class="mb-1 block text-muted-foreground">Credential ref</span>
-        <input v-model="seat.credential_ref" :class="inputCls" @blur="refreshKey" />
-      </label>
-      <div class="col-span-1 text-xs">
-        <span class="mb-1 block text-muted-foreground">
-          API key
-          <span v-if="keySaved" class="ml-1 text-emerald-400">● stored</span>
-          <span v-else-if="keySaved === false" class="ml-1 text-amber-400">○ not set</span>
-        </span>
-        <div class="flex gap-1">
-          <input v-model="keyInput" type="password" placeholder="paste key" :class="inputCls" />
-          <button @click="saveKey" :disabled="savingKey || !keyInput"
-            class="shrink-0 rounded-lg border px-2 text-xs hover:bg-accent disabled:opacity-40">
-            save
-          </button>
+
+      <p v-if="isCli" class="col-span-2 text-[11px] text-muted-foreground">
+        Uses your local <code class="text-foreground">{{ seat.provider === 'claude_cli' ? 'claude' : 'codex' }}</code>
+        CLI and its subscription auth — no API key. Make sure it's installed and signed in.
+      </p>
+      <p v-else-if="seat.provider === 'demo'" class="col-span-2 text-[11px] text-muted-foreground">
+        Offline demo agent — streams a canned deliberation with no key or network.
+      </p>
+
+      <template v-if="needsKey">
+        <label class="col-span-1 text-xs">
+          <span class="mb-1 block text-muted-foreground">Credential ref</span>
+          <input v-model="seat.credential_ref" :class="inputCls" @blur="refreshKey" />
+        </label>
+        <div class="col-span-1 text-xs">
+          <span class="mb-1 block text-muted-foreground">
+            API key
+            <span v-if="keySaved" class="ml-1 text-emerald-400">● stored</span>
+            <span v-else-if="keySaved === false" class="ml-1 text-amber-400">○ not set</span>
+          </span>
+          <div class="flex gap-1">
+            <input v-model="keyInput" type="password" placeholder="paste key" :class="inputCls" />
+            <button @click="saveKey" :disabled="savingKey || !keyInput"
+              class="shrink-0 rounded-lg border px-2 text-xs hover:bg-accent disabled:opacity-40">
+              save
+            </button>
+          </div>
         </div>
-      </div>
+      </template>
     </div>
   </div>
 </template>

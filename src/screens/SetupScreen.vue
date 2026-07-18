@@ -16,6 +16,10 @@ const store = useDeliberation();
           <h1 class="text-xl font-semibold tracking-tight">krunch</h1>
           <p class="text-xs text-muted-foreground">Lock a panel of LLMs in a room until consensus or deadlock.</p>
         </div>
+        <button @click="store.loadDemoPanel()"
+          class="ml-auto rounded-lg border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
+          ⚡ Load demo panel (no keys)
+        </button>
       </div>
     </header>
 

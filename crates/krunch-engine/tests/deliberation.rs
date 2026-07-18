@@ -120,11 +120,18 @@ async fn drive(
     cfg: SessionConfig,
     provider: MockProvider,
 ) -> (SessionState, Vec<EngineEvent>) {
+    drive_with(cfg, Arc::new(provider)).await
+}
+
+async fn drive_with(
+    cfg: SessionConfig,
+    provider: Arc<dyn AgentProvider>,
+) -> (SessionState, Vec<EngineEvent>) {
     let dir = tempfile::tempdir().unwrap();
     let store = Store::open(&dir.path().join("k.sqlite")).unwrap();
     let created = store.create_session("idem".into(), cfg.clone()).await.unwrap();
 
-    let engine = Engine::new(store, Arc::new(provider), engine_config());
+    let engine = Engine::new(store, provider, engine_config());
     let (tx, mut rx) = mpsc::channel::<EngineEvent>(4096);
     let collector = tokio::spawn(async move {
         let mut evs = Vec::new();
@@ -204,6 +211,31 @@ async fn halts_when_too_few_survivors() {
     let (state, events) = drive(cfg, provider).await;
     assert_eq!(state, SessionState::Halted);
     assert!(events.iter().any(|e| matches!(e, EngineEvent::SeatAbstained { .. })));
+}
+
+/// The built-in offline demo provider: every seat is a `DemoAgent`.
+struct DemoProvider;
+impl AgentProvider for DemoProvider {
+    fn build(&self, _seat: &SeatConfig) -> Result<Box<dyn Agent>, EngineError> {
+        Ok(Box::new(krunch_providers::demo::DemoAgent { chunk_delay: std::time::Duration::ZERO }))
+    }
+}
+
+#[tokio::test]
+async fn demo_provider_drives_a_full_deliberation_to_consensus() {
+    let (a, b, med) = (SeatId::new(), SeatId::new(), SeatId::new());
+    let cfg = SessionConfig {
+        problem: "adopt a four-day week?".into(),
+        mode: InteractionMode::Autonomous,
+        max_rounds: 3,
+        guard: GuardThresholds::default(),
+        seats: vec![seat(med, Role::Mediator), seat(a, Role::Panelist), seat(b, Role::Panelist)],
+    };
+    let (state, events) = drive_with(cfg, Arc::new(DemoProvider)).await;
+    assert_eq!(state, SessionState::Converged);
+    // The demo streamed tokens through the real event path.
+    assert!(events.iter().any(|e| matches!(e, EngineEvent::Token { .. })));
+    assert!(events.iter().any(|e| matches!(e, EngineEvent::Verdict { .. })));
 }
 
 #[tokio::test]

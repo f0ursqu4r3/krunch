@@ -8,6 +8,8 @@
 pub mod agent;
 pub mod anthropic;
 pub mod backoff;
+pub mod cli;
+pub mod demo;
 pub mod error;
 pub mod http;
 pub mod openai;
@@ -16,6 +18,8 @@ pub mod types;
 
 pub use agent::{Agent, TokenSink};
 pub use anthropic::AnthropicAgent;
+pub use cli::{CliAgent, CliKind};
+pub use demo::DemoAgent;
 pub use error::{PermanentKind, ProviderError, TransientKind};
 pub use openai::OpenAiCompatibleAgent;
 pub use types::{

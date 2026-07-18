@@ -1,6 +1,20 @@
 // TypeScript mirrors of the Rust wire types (krunch-core serde shapes + EngineEvent).
 
-export type Provider = "anthropic" | "open_ai_compatible";
+export type Provider =
+  | "anthropic"
+  | "open_ai_compatible"
+  | "claude_cli"
+  | "codex_cli"
+  | "demo";
+
+export function providerIsHttp(p: Provider): boolean {
+  return p === "anthropic" || p === "open_ai_compatible";
+}
+
+export function isLoopbackUrl(u: string): boolean {
+  const s = u.toLowerCase();
+  return s.includes("localhost") || s.includes("127.0.0.1") || s.includes("::1");
+}
 export type Role = "panelist" | "mediator";
 export type InteractionMode = "autonomous" | "batched" | "interactive";
 export type RulingKind = "CONSENSUS" | "CONTINUE" | "DEADLOCK";
