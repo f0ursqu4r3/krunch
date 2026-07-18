@@ -3,56 +3,58 @@ import { computed } from "vue";
 import { useDeliberation } from "@/stores/deliberation";
 
 const store = useDeliberation();
-
-// Stable panelist ordering for the rows.
 const panelistIds = computed(() => store.panelists.map((p) => p.id));
 function nameOf(id: string) {
   return store.seats.find((s) => s.id === id)?.display_name ?? id.slice(0, 6);
 }
-function confidenceIn(round: { stances: { seat: string; confidence: number }[] }, seat: string) {
+function conf(round: { stances: { seat: string; confidence: number }[] }, seat: string) {
   return round.stances.find((s) => s.seat === seat)?.confidence ?? 0;
 }
-const rulingColor: Record<string, string> = {
-  CONSENSUS: "bg-emerald-500",
-  CONTINUE: "bg-primary",
-  DEADLOCK: "bg-destructive",
+const rulingDot: Record<string, string> = {
+  CONSENSUS: "bg-consensus",
+  CONTINUE: "bg-brass/60",
+  DEADLOCK: "bg-deadlock",
 };
 </script>
 
 <template>
-  <div class="rounded-xl border bg-card p-3">
-    <div class="mb-2 flex items-center justify-between">
-      <h3 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Convergence</h3>
-      <span class="text-[10px] text-muted-foreground">confidence per round</span>
+  <div class="rise flex h-full flex-col rounded-xl border border-line bg-surface/40" style="animation-delay: 120ms">
+    <header class="border-b border-line/60 px-4 py-3">
+      <h3 class="font-display text-sm text-foreground">The tally</h3>
+      <p class="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-faint">conviction by round</p>
+    </header>
+
+    <div v-if="store.rounds.length === 0" class="grid flex-1 place-items-center px-4">
+      <p class="text-center font-display text-sm italic text-fg-faint">No rounds have closed.<br />The room is still speaking.</p>
     </div>
 
-    <div v-if="store.rounds.length === 0" class="py-4 text-center text-xs text-muted-foreground">
-      no completed rounds yet
-    </div>
-
-    <div v-else class="overflow-x-auto">
-      <table class="w-full border-separate border-spacing-1 text-[11px]">
+    <div v-else class="flex-1 overflow-auto p-3">
+      <table class="w-full border-separate border-spacing-1.5 text-[11px]">
         <thead>
           <tr>
-            <th class="w-24 text-left font-normal text-muted-foreground"></th>
-            <th v-for="r in store.rounds" :key="r.round" class="text-center font-normal text-muted-foreground">
-              R{{ r.round + 1 }}
-            </th>
+            <th></th>
+            <th v-for="r in store.rounds" :key="r.round"
+              class="font-mono text-[10px] font-normal text-fg-faint">R{{ r.round + 1 }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="pid in panelistIds" :key="pid">
-            <td class="truncate pr-1 text-muted-foreground">{{ nameOf(pid) }}</td>
+            <td class="max-w-[90px] truncate pr-1 text-fg-muted">{{ nameOf(pid) }}</td>
             <td v-for="r in store.rounds" :key="r.round" class="text-center">
-              <div class="mx-auto h-6 w-6 rounded" :style="{
-                backgroundColor: `color-mix(in srgb, var(--primary) ${confidenceIn(r, pid) * 100}%, var(--muted))`,
-              }" :title="`${(confidenceIn(r, pid) * 100).toFixed(0)}%`" />
+              <div class="mx-auto grid size-7 place-items-center rounded"
+                :style="{ backgroundColor: `color-mix(in oklch, var(--brass) ${conf(r, pid) * 90 + 6}%, var(--surface-3))` }"
+                :title="`${(conf(r, pid) * 100).toFixed(0)}%`">
+                <span class="font-mono text-[9px]"
+                  :style="{ color: conf(r, pid) > 0.5 ? 'var(--brass-ink)' : 'var(--fg-faint)' }">
+                  {{ (conf(r, pid) * 100).toFixed(0) }}
+                </span>
+              </div>
             </td>
           </tr>
           <tr>
-            <td class="pr-1 text-muted-foreground">ruling</td>
+            <td class="pr-1 font-mono text-[10px] uppercase tracking-wide text-fg-faint">rule</td>
             <td v-for="r in store.rounds" :key="r.round" class="text-center">
-              <span class="mx-auto inline-block h-2 w-6 rounded-full" :class="rulingColor[r.ruling ?? ''] ?? 'bg-muted'"
+              <span class="mx-auto block h-1.5 w-6 rounded-full" :class="rulingDot[r.ruling ?? ''] ?? 'bg-surface-3'"
                 :title="r.ruling" />
             </td>
           </tr>

@@ -38,23 +38,26 @@ async function saveKey() {
 onMounted(refreshKey);
 
 const inputCls =
-  "w-full rounded-lg border bg-background px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring";
+  "w-full rounded-md border border-line bg-bg-deep/60 px-2.5 py-1.5 text-sm text-foreground outline-none transition focus:border-brass/60 focus:ring-1 focus:ring-brass/40";
 </script>
 
 <template>
-  <div class="rounded-xl border bg-card p-4">
-    <div class="mb-3 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span class="rounded-md px-2 py-0.5 text-[11px] font-semibold ring-1"
+  <div class="rounded-xl border border-line bg-surface/50 p-4 transition hover:border-line-strong"
+    :class="seat.role === 'mediator' ? 'ring-1 ring-brass/25' : ''">
+    <div class="mb-3.5 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <span class="rounded px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] ring-1"
           :class="seat.role === 'mediator'
-            ? 'bg-primary/15 text-primary ring-primary/30'
-            : 'bg-muted text-muted-foreground ring-border'">
-          {{ seat.role === "mediator" ? "Mediator" : "Panelist" }}
+            ? 'bg-brass/12 text-brass ring-brass/35'
+            : 'bg-surface-3 text-fg-muted ring-line'">
+          {{ seat.role === "mediator" ? "at the head" : "seated" }}
         </span>
-        <input v-model="seat.display_name" class="border-none bg-transparent text-sm font-medium outline-none" />
+        <input v-model="seat.display_name"
+          class="border-none bg-transparent font-display text-[15px] text-foreground outline-none" />
       </div>
-      <button v-if="removable" @click="$emit('remove')" class="text-xs text-muted-foreground hover:text-destructive">
-        remove
+      <button v-if="removable" @click="$emit('remove')"
+        class="text-xs text-fg-faint transition hover:text-deadlock">
+        vacate
       </button>
     </div>
 
@@ -76,7 +79,7 @@ const inputCls =
       <label class="col-span-2 text-xs" v-if="isHttp">
         <span class="mb-1 block text-muted-foreground">
           Base URL
-          <span v-if="isLoopbackUrl(seat.base_url)" class="ml-1 text-emerald-400">loopback · key-free</span>
+          <span v-if="isLoopbackUrl(seat.base_url)" class="ml-1 text-consensus">loopback · key-free</span>
         </span>
         <input v-model="seat.base_url" :class="inputCls" @blur="refreshKey" />
       </label>
@@ -101,8 +104,8 @@ const inputCls =
         <div class="col-span-1 text-xs">
           <span class="mb-1 block text-muted-foreground">
             API key
-            <span v-if="keySaved" class="ml-1 text-emerald-400">● stored</span>
-            <span v-else-if="keySaved === false" class="ml-1 text-amber-400">○ not set</span>
+            <span v-if="keySaved" class="ml-1 text-consensus">● stored</span>
+            <span v-else-if="keySaved === false" class="ml-1 text-brass">○ not set</span>
           </span>
           <div class="flex gap-1">
             <input v-model="keyInput" type="password" placeholder="paste key" :class="inputCls" />

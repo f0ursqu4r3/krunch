@@ -86,6 +86,20 @@ export const useDeliberation = defineStore("deliberation", () => {
   const panelists = computed(() => seats.value.filter((s) => s.role === "panelist"));
   const mediator = computed(() => seats.value.find((s) => s.role === "mediator") ?? null);
 
+  // Atmosphere 0..1: the chamber warms as the panel grows confident, cools on
+  // deadlock/failure. Drives the ambient glow.
+  const warmth = computed(() => {
+    if (failure.value) return 0.06;
+    if (finalState.value === "converged") return 1;
+    const last = rounds.value[rounds.value.length - 1];
+    if (last?.ruling === "DEADLOCK") return 0.12;
+    const confs = Object.values(live)
+      .map((l) => l.confidence)
+      .filter((c): c is number => typeof c === "number");
+    if (!confs.length) return 0.14;
+    return confs.reduce((a, b) => a + b, 0) / confs.length;
+  });
+
   const validation = computed<string[]>(() => {
     const errs: string[] = [];
     if (!problem.value.trim()) errs.push("Problem statement is empty.");
@@ -315,7 +329,7 @@ export const useDeliberation = defineStore("deliberation", () => {
   return {
     // config
     problem, mode, maxRounds, quorumFraction, confidenceFloor, seats,
-    panelists, mediator, validation,
+    panelists, mediator, validation, warmth,
     addPanelist, removeSeat, loadDemoPanel,
     // runtime
     phase, sessionId, running, currentRound, live, mediatorId, mediatorText,

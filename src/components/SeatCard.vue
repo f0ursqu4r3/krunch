@@ -4,75 +4,73 @@ import { useDeliberation } from "@/stores/deliberation";
 import type { SeatConfig } from "@/lib/types";
 import { measure } from "@/lib/pretext";
 
-const props = defineProps<{ seat: SeatConfig }>();
+const props = defineProps<{ seat: SeatConfig; index?: number }>();
 const store = useDeliberation();
 
 const l = computed(() => store.live[props.seat.id]);
 const lineCount = ref(0);
+const active = computed(() => l.value?.status === "streaming");
 
-// Reflow-free measurement of the streamed text (Pretext).
 watch(
   () => l.value?.text,
   async (t) => {
-    if (!t) {
-      lineCount.value = 0;
-      return;
-    }
-    const m = await measure(t, 320);
-    lineCount.value = m.lineCount;
+    if (!t) return (lineCount.value = 0);
+    lineCount.value = (await measure(t, 320)).lineCount;
   },
 );
 
-const statusMeta = computed(() => {
+const status = computed(() => {
   switch (l.value?.status) {
-    case "streaming":
-      return { label: "streaming", cls: "bg-primary/15 text-primary ring-primary/30" };
-    case "stance":
-      return { label: "stance in", cls: "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30" };
-    case "abstained":
-      return { label: "abstained", cls: "bg-destructive/15 text-destructive ring-destructive/30" };
-    case "truncated":
-      return { label: "truncated", cls: "bg-amber-500/15 text-amber-400 ring-amber-500/30" };
-    default:
-      return { label: "idle", cls: "bg-muted text-muted-foreground ring-border" };
+    case "streaming": return { label: "speaking", cls: "text-brass" };
+    case "stance": return { label: "position filed", cls: "text-consensus" };
+    case "abstained": return { label: "abstained", cls: "text-deadlock" };
+    case "truncated": return { label: "cut short", cls: "text-brass" };
+    default: return { label: "listening", cls: "text-fg-faint" };
   }
 });
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-col rounded-xl border bg-card">
-    <header class="flex items-center justify-between gap-2 border-b px-3 py-2">
-      <div class="flex items-center gap-2 truncate">
-        <span class="size-2 shrink-0 rounded-full" :class="l?.status === 'streaming' ? 'bg-primary animate-pulse' : 'bg-muted-foreground/40'" />
-        <span class="truncate text-sm font-medium">{{ seat.display_name }}</span>
-        <span class="truncate text-xs text-muted-foreground">{{ seat.model }}</span>
+  <div class="rise flex min-h-0 flex-col overflow-hidden rounded-xl border bg-surface/60 transition-colors duration-500"
+    :class="active ? 'border-brass/40' : 'border-line'"
+    :style="[
+      { animationDelay: `${(index ?? 0) * 80}ms` },
+      active ? { boxShadow: '0 0 40px -16px color-mix(in oklch, var(--brass) 55%, transparent)' } : {},
+    ]">
+    <header class="flex items-center justify-between gap-2 border-b border-line/60 px-4 py-2.5">
+      <div class="flex min-w-0 items-center gap-2.5">
+        <span class="size-1.5 shrink-0 rounded-full transition-colors"
+          :class="active ? 'bg-brass candle' : 'bg-fg-faint/40'" />
+        <span class="truncate font-display text-[15px] text-foreground">{{ seat.display_name }}</span>
       </div>
-      <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ring-1" :class="statusMeta.cls">
-        {{ statusMeta.label }}
+      <span class="shrink-0 font-mono text-[10px] uppercase tracking-[0.12em]" :class="status.cls">
+        {{ status.label }}
       </span>
     </header>
 
-    <div class="min-h-0 flex-1 overflow-y-auto px-3 py-2 text-[13px] leading-relaxed text-card-foreground/90">
+    <div class="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[13px] leading-relaxed text-foreground/85">
       <p v-if="l?.text" class="whitespace-pre-wrap break-words">{{ l.text }}</p>
-      <p v-else class="text-muted-foreground italic">waiting…</p>
-      <p v-if="l?.status === 'abstained'" class="mt-2 text-xs text-destructive">
+      <p v-else class="font-display text-sm italic text-fg-faint">awaiting the floor…</p>
+      <p v-if="l?.status === 'abstained'" class="mt-2 font-mono text-[11px] text-deadlock/90">
         abstained — {{ l.reason }}
       </p>
     </div>
 
-    <footer v-if="l?.stance" class="border-t px-3 py-2">
-      <p class="text-xs font-medium text-foreground">{{ l.stance }}</p>
-      <div class="mt-1.5 flex items-center gap-2">
-        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-          <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${(l.confidence ?? 0) * 100}%` }" />
+    <footer v-if="l?.stance" class="border-t border-line/60 bg-bg-deep/30 px-4 py-3">
+      <p class="text-[13px] font-medium leading-snug text-foreground">"{{ l.stance }}"</p>
+      <div class="mt-2 flex items-center gap-2.5">
+        <span class="font-mono text-[10px] uppercase tracking-wider text-fg-faint">conviction</span>
+        <div class="h-[3px] flex-1 overflow-hidden rounded-full bg-surface-3">
+          <div class="h-full rounded-full bg-brass transition-all duration-700"
+            :style="{ width: `${(l.confidence ?? 0) * 100}%` }" />
         </div>
-        <span class="w-8 text-right text-[11px] tabular-nums text-muted-foreground">
-          {{ ((l.confidence ?? 0) * 100).toFixed(0) }}%
+        <span class="w-8 text-right font-mono text-[11px] text-brass">
+          {{ ((l.confidence ?? 0) * 100).toFixed(0) }}
         </span>
       </div>
     </footer>
-    <footer v-else-if="lineCount > 0" class="border-t px-3 py-1 text-right text-[10px] text-muted-foreground/60">
-      {{ lineCount }} lines
+    <footer v-else-if="lineCount > 0" class="border-t border-line/40 px-4 py-1.5 text-right">
+      <span class="font-mono text-[10px] text-fg-faint/60">{{ lineCount }} lines spoken</span>
     </footer>
   </div>
 </template>

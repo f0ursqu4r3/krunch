@@ -3,29 +3,34 @@ import { computed } from "vue";
 import { useDeliberation } from "@/stores/deliberation";
 
 const store = useDeliberation();
-const lastRuling = computed(() => store.rounds[store.rounds.length - 1]);
+const last = computed(() => store.rounds[store.rounds.length - 1]);
+const rulingCls: Record<string, string> = {
+  CONSENSUS: "text-consensus border-consensus/40",
+  CONTINUE: "text-brass border-brass/40",
+  DEADLOCK: "text-deadlock border-deadlock/40",
+};
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-col rounded-xl border bg-card ring-1 ring-primary/20">
-    <header class="flex items-center justify-between border-b px-4 py-2.5">
-      <div class="flex items-center gap-2">
-        <span class="text-lg">⚖️</span>
-        <span class="text-sm font-semibold">{{ store.mediator?.display_name ?? "Mediator" }}</span>
-        <span class="text-xs text-muted-foreground">foreman</span>
+  <div class="rise relative flex max-h-56 min-h-[9rem] flex-col overflow-hidden rounded-xl border border-brass/25 bg-surface/70"
+    style="box-shadow: 0 0 60px -30px color-mix(in oklch, var(--brass) 70%, transparent);">
+    <header class="flex items-center justify-between border-b border-brass/15 px-5 py-3">
+      <div class="flex items-center gap-3">
+        <span class="grid size-7 place-items-center rounded-full bg-brass/12 font-display text-brass ring-1 ring-brass/30">§</span>
+        <div class="flex items-baseline gap-2.5">
+          <span class="font-display text-base text-foreground">{{ store.mediator?.display_name ?? "The Foreman" }}</span>
+          <span class="font-mono text-[10px] uppercase tracking-[0.14em] text-brass/60">mediator · at the head</span>
+        </div>
       </div>
-      <span v-if="lastRuling?.ruling" class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1"
-        :class="{
-          'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30': lastRuling.ruling === 'CONSENSUS',
-          'bg-primary/15 text-primary ring-primary/30': lastRuling.ruling === 'CONTINUE',
-          'bg-destructive/15 text-destructive ring-destructive/30': lastRuling.ruling === 'DEADLOCK',
-        }">
-        {{ lastRuling.ruling }}<span v-if="lastRuling.downgraded"> · downgraded</span>
+      <span v-if="last?.ruling"
+        class="rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em]"
+        :class="rulingCls[last.ruling]">
+        {{ last.ruling }}<span v-if="last.downgraded" class="text-fg-faint"> · guard held</span>
       </span>
     </header>
-    <div class="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[13px] leading-relaxed">
-      <p v-if="store.mediatorText" class="whitespace-pre-wrap break-words text-card-foreground/90">{{ store.mediatorText }}</p>
-      <p v-else class="italic text-muted-foreground">The mediator will summarize once the panel has spoken…</p>
+    <div class="min-h-0 flex-1 overflow-y-auto px-5 py-3.5 text-[13.5px] leading-relaxed text-foreground/85">
+      <p v-if="store.mediatorText" class="whitespace-pre-wrap break-words">{{ store.mediatorText }}</p>
+      <p v-else class="font-display italic text-fg-faint">The foreman waits for the panel to speak, then weighs the room…</p>
     </div>
   </div>
 </template>

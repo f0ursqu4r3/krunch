@@ -1,54 +1,74 @@
 @import "tailwindcss";
+@import "./assets/fonts/fonts.css";
 
 @custom-variant dark (&:is(.dark *));
 
-/* shadcn-vue design tokens (Tailwind v4, CSS-first). */
+/*
+  krunch — "Deliberation Chamber"
+  Warm charcoal chamber, aged-brass candlelight, a room that warms as the panel
+  converges. OKLCH throughout; neutrals tinted toward the brass hue (~78) for
+  subconscious cohesion. See .impeccable.md.
+*/
 :root {
-  --background: hsl(0 0% 100%);
-  --foreground: hsl(240 10% 3.9%);
-  --card: hsl(0 0% 100%);
-  --card-foreground: hsl(240 10% 3.9%);
-  --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(240 10% 3.9%);
-  --primary: hsl(243 75% 59%);
-  --primary-foreground: hsl(0 0% 98%);
-  --secondary: hsl(240 4.8% 95.9%);
-  --secondary-foreground: hsl(240 5.9% 10%);
-  --muted: hsl(240 4.8% 95.9%);
-  --muted-foreground: hsl(240 3.8% 46.1%);
-  --accent: hsl(240 4.8% 95.9%);
-  --accent-foreground: hsl(240 5.9% 10%);
-  --destructive: hsl(0 84.2% 60.2%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(240 5.9% 90%);
-  --input: hsl(240 5.9% 90%);
-  --ring: hsl(243 75% 59%);
-  --radius: 0.6rem;
-}
+  /* --- chamber surfaces (warm near-black → parchment) --- */
+  --bg: oklch(0.148 0.008 74);
+  --bg-deep: oklch(0.118 0.007 74);
+  --surface: oklch(0.185 0.0095 72);
+  --surface-2: oklch(0.223 0.011 71);
+  --surface-3: oklch(0.262 0.013 70);
 
-.dark {
-  --background: hsl(240 10% 3.9%);
-  --foreground: hsl(0 0% 98%);
-  --card: hsl(240 8% 6.5%);
-  --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(240 10% 3.9%);
-  --popover-foreground: hsl(0 0% 98%);
-  --primary: hsl(243 75% 68%);
-  --primary-foreground: hsl(240 6% 10%);
-  --secondary: hsl(240 3.7% 15.9%);
-  --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(240 3.7% 15.9%);
-  --muted-foreground: hsl(240 5% 64.9%);
-  --accent: hsl(240 3.7% 15.9%);
-  --accent-foreground: hsl(0 0% 98%);
-  --destructive: hsl(0 62.8% 50.6%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(240 3.7% 15.9%);
-  --input: hsl(240 3.7% 18%);
-  --ring: hsl(243 75% 68%);
+  --fg: oklch(0.933 0.012 86);
+  --fg-muted: oklch(0.72 0.017 80);
+  --fg-faint: oklch(0.565 0.016 76);
+
+  --line: oklch(0.31 0.012 72);
+  --line-strong: oklch(0.42 0.016 74);
+
+  /* --- brass candlelight accent --- */
+  --brass: oklch(0.775 0.126 80);
+  --brass-bright: oklch(0.84 0.13 85);
+  --brass-deep: oklch(0.63 0.108 72);
+  --brass-ink: oklch(0.26 0.05 74);
+
+  /* --- deliberation states --- */
+  --consensus: oklch(0.82 0.135 92);   /* candlelit gold */
+  --continue: oklch(0.77 0.11 80);     /* brass */
+  --deadlock: oklch(0.66 0.15 47);     /* ember */
+  --danger: oklch(0.6 0.16 30);        /* deep red */
+
+  --radius: 0.55rem;
+
+  /* shadcn-compatible aliases so existing utilities render in-palette */
+  --background: var(--bg);
+  --foreground: var(--fg);
+  --card: var(--surface);
+  --card-foreground: var(--fg);
+  --popover: var(--surface-2);
+  --popover-foreground: var(--fg);
+  --primary: var(--brass);
+  --primary-foreground: oklch(0.2 0.03 74);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--fg);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--fg-muted);
+  --accent: var(--surface-3);
+  --accent-foreground: var(--fg);
+  --destructive: var(--danger);
+  --destructive-foreground: oklch(0.96 0.02 60);
+  --border: var(--line);
+  --input: var(--surface-2);
+  --ring: var(--brass);
+
+  /* atmosphere: 0 = cold/undecided, 1 = warm consensus. JS drives --warmth. */
+  --warmth: 0;
 }
 
 @theme inline {
+  --color-bg: var(--bg);
+  --color-bg-deep: var(--bg-deep);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -65,16 +85,36 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
+  --color-border: var(--line);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  --color-brass: var(--brass);
+  --color-brass-bright: var(--brass-bright);
+  --color-brass-deep: var(--brass-deep);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-consensus: var(--consensus);
+  --color-continue: var(--continue);
+  --color-deadlock: var(--deadlock);
+  --color-danger: var(--danger);
+
+  --font-display: "Young Serif", ui-serif, Georgia, serif;
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Fragment Mono", ui-monospace, "SF Mono", monospace;
+
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
-  border-color: var(--border);
+  border-color: var(--line);
 }
 
 html,
@@ -85,10 +125,86 @@ body,
 
 body {
   margin: 0;
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv05" 1, "ss01" 1;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   overflow: hidden;
+}
+
+/* Display type: warm, carved gravitas. */
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* A faint film grain over the whole chamber — atmosphere, not decoration. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.028;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Custom scrollbars — brass on charcoal. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--brass) 22%, transparent);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--brass) 40%, transparent);
+  background-clip: padding-box;
+}
+
+::selection {
+  background: color-mix(in oklch, var(--brass) 35%, transparent);
+  color: var(--fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Staggered chamber entrance. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.6s var(--ease-out-expo) both;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.72; }
+}
+.candle {
+  animation: flicker 2.4s ease-in-out infinite;
 }
