@@ -161,6 +161,14 @@ pub async fn has_credential(credential_ref: String) -> Result<bool, String> {
     Ok(credentials::exists(&credential_ref))
 }
 
+/// Export a finished (or in-progress) session as self-contained Markdown.
+#[tauri::command]
+pub async fn export_session(state: State<'_, AppState>, session_id: String) -> Result<String, String> {
+    let session = parse_session(&session_id)?;
+    let store = state.store.clone();
+    crate::export::export_markdown(&store, session).await
+}
+
 /// Health check retained from M1.
 #[tauri::command]
 pub fn core_version() -> String {

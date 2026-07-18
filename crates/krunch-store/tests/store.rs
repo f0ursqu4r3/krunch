@@ -135,6 +135,61 @@ async fn recovery_leaves_terminal_sessions_untouched() {
 }
 
 #[tokio::test]
+async fn read_models_round_trip_for_export() {
+    use krunch_core::schema::{MediatorRuling, Ruling, Stance};
+
+    let (_d, store) = temp_store();
+    let cfg = config();
+    let panelist = cfg.seats[1].id;
+    let s = store.create_session("k".into(), cfg).await.unwrap().session_id;
+    let round = store.begin_round(s, 0, RoundKind::Deliberation, Some("focus".into())).await.unwrap();
+
+    store
+        .record_stance(
+            round,
+            panelist,
+            Stance { v: 1, stance: "yes".into(), confidence: 0.8, agree_with: vec![], open_questions: vec![] },
+        )
+        .await
+        .unwrap();
+    store
+        .record_ruling(
+            round,
+            MediatorRuling {
+                v: 1,
+                ruling: Ruling::Continue,
+                request_user_input: false,
+                next_focus: "next".into(),
+                questions_for_user: vec![],
+                assumptions: vec!["assumed X".into()],
+                summary: "synthesis".into(),
+            },
+        )
+        .await
+        .unwrap();
+    store.record_user_qa(s, 0, "why?".into(), "because".into()).await.unwrap();
+
+    // Reads used by the Markdown export.
+    let rounds = store.rounds(s).await.unwrap();
+    assert_eq!(rounds.len(), 1);
+    assert_eq!(rounds[0].focus.as_deref(), Some("focus"));
+
+    let stances = store.stances(round).await.unwrap();
+    assert_eq!(stances[0].stance, "yes");
+
+    let ruling = store.ruling(round).await.unwrap().unwrap();
+    assert_eq!(ruling.ruling, "CONTINUE");
+    assert_eq!(ruling.assumptions, vec!["assumed X".to_string()]);
+
+    let seats = store.seats(s).await.unwrap();
+    assert_eq!(seats.len(), 3);
+    assert_eq!(seats.iter().filter(|s| s.role == "mediator").count(), 1);
+
+    let qa = store.user_qa(s).await.unwrap();
+    assert_eq!(qa[0].answer, "because");
+}
+
+#[tokio::test]
 async fn unknown_session_state_update_is_not_found() {
     let (_d, store) = temp_store();
     let err = store.set_state(SessionId::new(), SessionState::Running).await.unwrap_err();

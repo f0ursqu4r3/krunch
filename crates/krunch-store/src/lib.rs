@@ -543,6 +543,167 @@ impl Store {
         })
         .await
     }
+
+    /// The finalized rounds of a session, in order (for export / re-open).
+    pub async fn rounds(&self, session: SessionId) -> StoreResult<Vec<RoundRow>> {
+        self.run(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, index_no, kind, status, focus FROM rounds
+                 WHERE session_id = ?1 ORDER BY index_no, created_at",
+            )?;
+            let rows = stmt.query_map(params![session.to_string()], |r| {
+                let id: String = r.get(0)?;
+                Ok(RoundRow {
+                    id: RoundId(id.parse().unwrap_or_default()),
+                    index_no: r.get(1)?,
+                    kind: r.get(2)?,
+                    status: r.get(3)?,
+                    focus: r.get(4)?,
+                })
+            })?;
+            Ok(rows.collect::<Result<Vec<_>, _>>()?)
+        })
+        .await
+    }
+
+    /// The recorded stances for a round.
+    pub async fn stances(&self, round: RoundId) -> StoreResult<Vec<StanceRow>> {
+        self.run(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT seat_id, stance, confidence, agree_with_json, open_questions_json
+                 FROM stances WHERE round_id = ?1",
+            )?;
+            let rows = stmt.query_map(params![round.to_string()], |r| {
+                let seat: String = r.get(0)?;
+                let agree: String = r.get(3)?;
+                let oq: String = r.get(4)?;
+                Ok(StanceRow {
+                    seat: SeatId(seat.parse().unwrap_or_default()),
+                    stance: r.get(1)?,
+                    confidence: r.get(2)?,
+                    agree_with: serde_json::from_str(&agree).unwrap_or_default(),
+                    open_questions: serde_json::from_str(&oq).unwrap_or_default(),
+                })
+            })?;
+            Ok(rows.collect::<Result<Vec<_>, _>>()?)
+        })
+        .await
+    }
+
+    /// The ruling for a round, if recorded.
+    pub async fn ruling(&self, round: RoundId) -> StoreResult<Option<RulingRow>> {
+        self.run(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT ruling, request_user_input, next_focus, questions_json,
+                            assumptions_json, summary
+                     FROM rulings WHERE round_id = ?1",
+                    params![round.to_string()],
+                    |r| {
+                        let q: String = r.get(3)?;
+                        let a: String = r.get(4)?;
+                        Ok(RulingRow {
+                            ruling: r.get(0)?,
+                            request_user_input: r.get::<_, i64>(1)? != 0,
+                            next_focus: r.get(2)?,
+                            questions: serde_json::from_str(&q).unwrap_or_default(),
+                            assumptions: serde_json::from_str(&a).unwrap_or_default(),
+                            summary: r.get(5)?,
+                        })
+                    },
+                )
+                .optional()?)
+        })
+        .await
+    }
+
+    /// The audit-snapshot roster for a session.
+    pub async fn seats(&self, session: SessionId) -> StoreResult<Vec<SeatRow>> {
+        self.run(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT seat_id, display_name, provider, base_url, model, role
+                 FROM seats WHERE session_id = ?1",
+            )?;
+            let rows = stmt.query_map(params![session.to_string()], |r| {
+                let seat: String = r.get(0)?;
+                Ok(SeatRow {
+                    seat: SeatId(seat.parse().unwrap_or_default()),
+                    display_name: r.get(1)?,
+                    provider: r.get(2)?,
+                    base_url: r.get(3)?,
+                    model: r.get(4)?,
+                    role: r.get(5)?,
+                })
+            })?;
+            Ok(rows.collect::<Result<Vec<_>, _>>()?)
+        })
+        .await
+    }
+
+    /// The resolved user Q&A for a session, in order.
+    pub async fn user_qa(&self, session: SessionId) -> StoreResult<Vec<QaRow>> {
+        self.run(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT round_index, question, answer FROM user_qa
+                 WHERE session_id = ?1 ORDER BY id",
+            )?;
+            let rows = stmt.query_map(params![session.to_string()], |r| {
+                Ok(QaRow { round_index: r.get(0)?, question: r.get(1)?, answer: r.get(2)? })
+            })?;
+            Ok(rows.collect::<Result<Vec<_>, _>>()?)
+        })
+        .await
+    }
+}
+
+/// A round row (read model).
+#[derive(Debug, Clone)]
+pub struct RoundRow {
+    pub id: RoundId,
+    pub index_no: u32,
+    pub kind: String,
+    pub status: String,
+    pub focus: Option<String>,
+}
+
+/// A recorded stance (read model).
+#[derive(Debug, Clone)]
+pub struct StanceRow {
+    pub seat: SeatId,
+    pub stance: String,
+    pub confidence: f64,
+    pub agree_with: Vec<SeatId>,
+    pub open_questions: Vec<String>,
+}
+
+/// A recorded ruling (read model).
+#[derive(Debug, Clone)]
+pub struct RulingRow {
+    pub ruling: String,
+    pub request_user_input: bool,
+    pub next_focus: String,
+    pub questions: Vec<String>,
+    pub assumptions: Vec<String>,
+    pub summary: String,
+}
+
+/// An audit-snapshot seat (read model).
+#[derive(Debug, Clone)]
+pub struct SeatRow {
+    pub seat: SeatId,
+    pub display_name: String,
+    pub provider: String,
+    pub base_url: String,
+    pub model: String,
+    pub role: String,
+}
+
+/// A resolved user Q&A (read model).
+#[derive(Debug, Clone)]
+pub struct QaRow {
+    pub round_index: u32,
+    pub question: String,
+    pub answer: String,
 }
 
 fn row_to_summary(r: &rusqlite::Row<'_>) -> rusqlite::Result<SessionSummary> {

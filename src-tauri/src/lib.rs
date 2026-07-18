@@ -3,6 +3,7 @@
 
 mod commands;
 mod credentials;
+mod export;
 mod gate;
 mod provider_factory;
 
@@ -55,6 +56,7 @@ pub fn run() {
             commands::get_session,
             commands::set_credential,
             commands::has_credential,
+            commands::export_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
