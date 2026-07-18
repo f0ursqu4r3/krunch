@@ -42,7 +42,10 @@ pub fn parse_data(flavor: SseFlavor, payload: &str) -> Option<Delta> {
     }
     // OpenAI's end-of-stream sentinel.
     if flavor == SseFlavor::OpenAi && payload == "[DONE]" {
-        return Some(Delta { done: true, ..Default::default() });
+        return Some(Delta {
+            done: true,
+            ..Default::default()
+        });
     }
 
     let v: Value = serde_json::from_str(payload).ok()?;
@@ -70,26 +73,61 @@ fn parse_openai(v: &Value) -> Option<Delta> {
     if text.is_none() && finish_reason.is_none() && usage.is_none() {
         return None;
     }
-    Some(Delta { text, finish_reason, usage, done: false })
+    Some(Delta {
+        text,
+        finish_reason,
+        usage,
+        done: false,
+    })
 }
 
 fn parse_openai_usage(u: &Value) -> Usage {
     Usage {
-        input_tokens: u.get("prompt_tokens").and_then(|x| x.as_u64()).map(|x| x as u32),
-        output_tokens: u.get("completion_tokens").and_then(|x| x.as_u64()).map(|x| x as u32),
+        input_tokens: u
+            .get("prompt_tokens")
+            .and_then(|x| x.as_u64())
+            .map(|x| x as u32),
+        output_tokens: u
+            .get("completion_tokens")
+            .and_then(|x| x.as_u64())
+            .map(|x| x as u32),
     }
 }
 
 fn parse_anthropic(v: &Value) -> Option<Delta> {
     let ty = v.get("type")?.as_str()?;
     match ty {
+        "message_start" => {
+            // Anthropic sends prompt/input usage once, on message_start. Keep
+            // nullable fields nullable: a missing field is unknown, not zero.
+            let usage = v
+                .get("message")
+                .and_then(|m| m.get("usage"))
+                .map(|u| Usage {
+                    input_tokens: u
+                        .get("input_tokens")
+                        .and_then(|x| x.as_u64())
+                        .map(|x| x as u32),
+                    output_tokens: u
+                        .get("output_tokens")
+                        .and_then(|x| x.as_u64())
+                        .map(|x| x as u32),
+                });
+            usage.map(|usage| Delta {
+                usage: Some(usage),
+                ..Default::default()
+            })
+        }
         "content_block_delta" => {
             let text = v
                 .get("delta")
                 .and_then(|d| d.get("text"))
                 .and_then(|t| t.as_str())
                 .map(|s| s.to_string());
-            text.map(|t| Delta { text: Some(t), ..Default::default() })
+            text.map(|t| Delta {
+                text: Some(t),
+                ..Default::default()
+            })
         }
         "message_delta" => {
             let finish_reason = v
@@ -99,15 +137,25 @@ fn parse_anthropic(v: &Value) -> Option<Delta> {
                 .map(map_finish);
             let usage = v.get("usage").map(|u| Usage {
                 input_tokens: None,
-                output_tokens: u.get("output_tokens").and_then(|x| x.as_u64()).map(|x| x as u32),
+                output_tokens: u
+                    .get("output_tokens")
+                    .and_then(|x| x.as_u64())
+                    .map(|x| x as u32),
             });
             if finish_reason.is_none() && usage.is_none() {
                 return None;
             }
-            Some(Delta { finish_reason, usage, ..Default::default() })
+            Some(Delta {
+                finish_reason,
+                usage,
+                ..Default::default()
+            })
         }
-        "message_stop" => Some(Delta { done: true, ..Default::default() }),
-        // ping, message_start, content_block_start, content_block_stop, error handled upstream
+        "message_stop" => Some(Delta {
+            done: true,
+            ..Default::default()
+        }),
+        // ping, content_block_start, content_block_stop, error handled upstream
         _ => None,
     }
 }
@@ -118,7 +166,11 @@ mod tests {
 
     #[test]
     fn openai_content_delta() {
-        let d = parse_data(SseFlavor::OpenAi, r#"{"choices":[{"delta":{"content":"Hel"}}]}"#).unwrap();
+        let d = parse_data(
+            SseFlavor::OpenAi,
+            r#"{"choices":[{"delta":{"content":"Hel"}}]}"#,
+        )
+        .unwrap();
         assert_eq!(d.text.as_deref(), Some("Hel"));
         assert!(!d.done);
     }
@@ -142,7 +194,11 @@ mod tests {
 
     #[test]
     fn openai_length_finish_maps() {
-        let d = parse_data(SseFlavor::OpenAi, r#"{"choices":[{"delta":{},"finish_reason":"length"}]}"#).unwrap();
+        let d = parse_data(
+            SseFlavor::OpenAi,
+            r#"{"choices":[{"delta":{},"finish_reason":"length"}]}"#,
+        )
+        .unwrap();
         assert_eq!(d.finish_reason, Some(FinishReason::Length));
     }
 
@@ -170,6 +226,18 @@ mod tests {
         .unwrap();
         assert_eq!(d.finish_reason, Some(FinishReason::Stop));
         assert_eq!(d.usage.unwrap().output_tokens, Some(42));
+    }
+
+    #[test]
+    fn anthropic_message_start_retains_input_usage() {
+        let d = parse_data(
+            SseFlavor::Anthropic,
+            r#"{"type":"message_start","message":{"usage":{"input_tokens":123}}}"#,
+        )
+        .unwrap();
+        let usage = d.usage.unwrap();
+        assert_eq!(usage.input_tokens, Some(123));
+        assert_eq!(usage.output_tokens, None);
     }
 
     #[test]

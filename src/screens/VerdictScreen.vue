@@ -1,134 +1,23 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import { Copy, Download, RotateCcw, X } from "@lucide/vue";
 import { useDeliberation } from "@/stores/deliberation";
-import type { SessionState } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Copy, FileDown, RefreshCw } from "@lucide/vue";
-
-const store = useDeliberation();
-const copied = ref(false);
-
-const outcome = computed<SessionState | null>(() => store.finalState);
-const meta = computed(() => {
-  switch (outcome.value) {
-    case "converged": return { kicker: "The panel has ruled", title: "Consensus", tone: "text-consensus", glow: true };
-    case "deadlocked": return { kicker: "The panel could not agree", title: "Deadlock", tone: "text-deadlock", glow: false };
-    case "halted": return { kicker: "The chamber emptied", title: "Halted", tone: "text-deadlock", glow: false };
-    case "mediator_error": return { kicker: "The foreman faltered", title: "Mistrial", tone: "text-deadlock", glow: false };
-    case "abandoned": return { kicker: "You called it", title: "Adjourned", tone: "text-fg-muted", glow: false };
-    case "interrupted": return { kicker: "The session broke off", title: "Interrupted", tone: "text-fg-muted", glow: false };
-    default: return { kicker: "Concluded", title: "Verdict", tone: "text-foreground", glow: false };
-  }
-});
-
-// Dependency-free, XSS-safe typesetting of the verdict Markdown: parse into
-// blocks and render as real elements (text interpolation, never v-html).
-type Block = { kind: "h"; text: string } | { kind: "p"; text: string } | { kind: "ul"; items: string[] };
-const blocks = computed<Block[]>(() => {
-  const src = store.verdict?.text ?? "";
-  const out: Block[] = [];
-  let para: string[] = [];
-  let list: string[] = [];
-  const flushPara = () => { if (para.length) { out.push({ kind: "p", text: para.join(" ") }); para = []; } };
-  const flushList = () => { if (list.length) { out.push({ kind: "ul", items: list }); list = []; } };
-  for (const raw of src.split("\n")) {
-    const line = raw.trimEnd();
-    if (/^#{1,6}\s/.test(line)) { flushPara(); flushList(); out.push({ kind: "h", text: line.replace(/^#{1,6}\s/, "") }); }
-    else if (/^[-*]\s/.test(line)) { flushPara(); list.push(line.replace(/^[-*]\s/, "")); }
-    else if (line.trim() === "") { flushPara(); flushList(); }
-    else { flushList(); para.push(line); }
-  }
-  flushPara(); flushList();
-  return out;
-});
-
-async function copyExport() {
-  try {
-    await navigator.clipboard.writeText(await store.exportMarkdown());
-    copied.value = true;
-    setTimeout(() => (copied.value = false), 1800);
-  } catch { /* preview / no backend */ }
-}
-async function downloadExport() {
-  try {
-    const md = await store.exportMarkdown();
-    const url = URL.createObjectURL(new Blob([md], { type: "text/markdown" }));
-    const a = document.createElement("a");
-    a.href = url; a.download = "krunch-ruling.md"; a.click();
-    URL.revokeObjectURL(url);
-  } catch { /* preview / no backend */ }
-}
+const store = useDeliberation(); const ready = ref(false); const dismissed = ref(false); const copied = ref(false);
+onMounted(() => { window.setTimeout(() => ready.value = true, matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 650); });
+const meta = computed(() => store.finalState === "converged" ? ["CONSENSUS LOCKED", "text-consensus"] : store.finalState === "deadlocked" ? ["DEADLOCK", "text-deadlock"] : [String(store.finalState ?? "HALTED").toUpperCase(), "text-brass"]);
+const lines = computed(() => (store.verdict?.text ?? store.failure?.reason ?? "No final packet received.").split("\n").filter(Boolean));
+async function copy() { try { await navigator.clipboard.writeText(await store.exportMarkdown()); copied.value = true; window.setTimeout(() => copied.value = false, 1200); } catch { /* backend unavailable in preview */ } }
+async function download() { const text = await store.exportMarkdown(); const url = URL.createObjectURL(new Blob([text], { type: "text/markdown" })); const a = document.createElement("a"); a.href = url; a.download = "krunch-session-dump.md"; a.click(); URL.revokeObjectURL(url); }
 </script>
 
 <template>
-  <div class="h-full overflow-y-auto">
-    <div class="mx-auto max-w-2xl px-8 pb-24 pt-16">
-      <!-- Ruling head -->
-      <header class="rise flex items-start justify-between gap-6">
-        <div>
-          <p class="font-mono text-[11px] uppercase tracking-[0.2em] text-fg-faint">{{ meta.kicker }}</p>
-          <h1 class="mt-2 font-display text-6xl leading-none" :class="meta.tone"
-            :style="meta.glow ? 'text-shadow: 0 0 50px color-mix(in oklch, var(--consensus) 45%, transparent)' : ''">
-            {{ meta.title }}
-          </h1>
-          <p class="mt-3 font-mono text-xs text-fg-faint">
-            {{ store.rounds.length }} {{ store.rounds.length === 1 ? "round" : "rounds" }} deliberated
-          </p>
-        </div>
-        <Button variant="outline" size="sm" @click="store.backToSetup()"
-          class="mt-1 shrink-0 rounded-full border-line text-fg-muted hover:border-brass/50 hover:text-brass">
-          <RefreshCw data-icon="inline-start" />
-          Convene anew
-        </Button>
-      </header>
-
-      <!-- The ruling -->
-      <section v-if="store.verdict" class="rise mt-10" style="animation-delay: 80ms">
-        <div class="mb-5 flex items-center gap-3">
-          <Separator class="flex-1 bg-line" />
-          <span class="shrink-0 font-mono text-[10px] uppercase tracking-[0.25em] text-brass/70">the ruling</span>
-          <Separator class="flex-1 bg-line" />
-        </div>
-        <article class="space-y-4">
-          <template v-for="(b, i) in blocks" :key="i">
-            <h3 v-if="b.kind === 'h'" class="pt-2 font-display text-xl text-brass">{{ b.text }}</h3>
-            <p v-else-if="b.kind === 'p'" class="text-[15px] leading-[1.75] text-foreground/90">{{ b.text }}</p>
-            <ul v-else class="space-y-2">
-              <li v-for="(it, j) in b.items" :key="j" class="flex gap-3 text-[15px] leading-[1.7] text-foreground/85">
-                <span class="mt-2.5 size-1 shrink-0 rounded-full bg-brass" />
-                <span>{{ it }}</span>
-              </li>
-            </ul>
-          </template>
-        </article>
-      </section>
-
-      <!-- Terminal failure -->
-      <Alert v-else-if="store.failure" class="rise mt-10 border-deadlock/20 bg-surface/40 p-6" style="animation-delay: 80ms">
-        <AlertDescription class="flex flex-col gap-3">
-          <p class="text-[15px] leading-relaxed text-fg-muted">
-            The deliberation ended in <span class="text-foreground">{{ store.failure.state }}</span> before a verdict could be synthesized.
-          </p>
-          <p class="font-mono text-sm text-deadlock">{{ store.failure.reason }}</p>
-          <p class="mt-2 text-xs text-fg-faint">The record up to the last durable round remains on file.</p>
-        </AlertDescription>
-      </Alert>
-
-      <!-- File the record -->
-      <div class="rise mt-10 flex items-center gap-3" style="animation-delay: 140ms">
-        <Button variant="outline" size="sm" @click="copyExport"
-          class="rounded-full border-line text-fg-muted hover:border-brass/50 hover:text-brass">
-          <Copy data-icon="inline-start" />
-          {{ copied ? "copied to clipboard" : "copy the record" }}
-        </Button>
-        <Button variant="outline" size="sm" @click="downloadExport"
-          class="rounded-full border-line text-fg-muted hover:border-brass/50 hover:text-brass">
-          <FileDown data-icon="inline-start" />
-          file as markdown
-        </Button>
-      </div>
-    </div>
+  <div v-if="!dismissed" class="absolute inset-0 z-30 grid place-items-center bg-bg-deep/85 p-5 backdrop-blur-sm" @click.self="ready = true">
+    <section class="terminal-panel relative max-h-full w-full max-w-4xl overflow-y-auto border-2 p-6" :class="ready ? 'boot' : ''">
+      <button class="absolute right-3 top-3 text-fg-faint hover:text-cyan" aria-label="Dismiss verdict overlay" @click="dismissed = true"><X class="size-4" /></button>
+      <p class="font-mono text-[10px] text-cyan">FINALIZATION // ASCII COMPILE</p>
+      <pre v-if="!ready" class="mt-5 overflow-hidden text-brass">[##########----------] 48%\nloading accepted-completion packets\nchecking consensus guard\nrendering verdict artifact</pre>
+      <template v-else><p class="mt-6 font-display text-4xl sm:text-6xl" :class="meta[1]">{{ meta[0] }}</p><p class="mt-2 font-mono text-[10px] text-fg-faint">SESSION {{ store.sessionId?.slice(0, 8) }} · {{ store.rounds.length }} deliberated rounds · accepted-completion tokens</p><article class="mt-6 border-y border-line py-5 font-mono text-xs leading-7 text-foreground/90"><p v-for="(line, index) in lines" :key="index" class="mb-3">{{ line }}</p></article><footer class="mt-5 flex flex-wrap gap-2"><Button size="sm" variant="outline" class="border-cyan/45 text-cyan" @click="copy"><Copy data-icon="inline-start" />{{ copied ? 'Copied' : 'Copy dump' }}</Button><Button size="sm" variant="outline" class="border-consensus/45 text-consensus" @click="download"><Download data-icon="inline-start" />Download dump</Button><Button size="sm" variant="ghost" class="text-fg-muted" @click="store.backToSetup()"><RotateCcw data-icon="inline-start" />New session</Button></footer></template>
+    </section>
   </div>
 </template>
