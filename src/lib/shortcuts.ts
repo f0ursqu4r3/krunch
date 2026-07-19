@@ -1,5 +1,5 @@
 export type AppPhase = "setup" | "room" | "verdict";
-export type ShortcutAction = "palette" | "convene" | "add-seat" | "export" | "help" | "focus-seat" | "escape";
+export type ShortcutAction = "palette" | "convene" | "add-seat" | "export" | "help" | "focus-seat" | "escape" | "abort" | "new-session";
 
 function isEditable(target: EventTarget | null): boolean {
   const node = target instanceof Element ? target : null;
@@ -18,6 +18,9 @@ export function shortcutFor(event: KeyboardEvent, phase: AppPhase): { action: Sh
   if (phase === "setup" && event.key.toLowerCase() === "c") return { action: "convene" };
   if (phase === "setup" && event.key.toLowerCase() === "a") return { action: "add-seat" };
   if (phase === "verdict" && event.key.toLowerCase() === "e") return { action: "export" };
+  // "new-session" is keyed only in verdict (run already terminal); in room it is
+  // palette-only — one bare keystroke must not kill a paid multi-model run.
+  if (phase === "verdict" && event.key.toLowerCase() === "n") return { action: "new-session" };
   if (phase === "room" && /^[1-6]$/.test(event.key)) return { action: "focus-seat", seat: Number(event.key) - 1 };
   return null;
 }

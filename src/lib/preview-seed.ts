@@ -154,6 +154,9 @@ async function playScriptedStream(store: Store) {
   store.phase = "room";
 
   const session = "preview-stream";
+  // Mirror a live run: with sessionId set, "new session" mid-replay marks this
+  // session ended and the rest of the scripted events are dropped by the guard.
+  store.sessionId = session;
   let seq = 0;
   type Sessionless<T> = T extends unknown ? Omit<T, "session"> : never; // distribute over the union
   const emit = (e: Sessionless<EngineEvent>) => store.handle({ ...e, session } as EngineEvent);

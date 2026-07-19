@@ -103,6 +103,11 @@ export const useDeliberation = defineStore("deliberation", () => {
   let pendingSummary: string | undefined;
   let pendingDowngraded = false;
   const pendingMetrics = new Map<number, ConvergenceTelemetry>();
+  // Sessions the user walked away from (abort → new session / back to setup).
+  // Their late events must never mutate the store: with sessionId null the
+  // `e.session !== sessionId` guard passes everything, so a stale `verdict`
+  // would yank the user out of setup back into the overlay.
+  const endedSessions = new Set<string>();
   const usageKeys = new Set<string>();
   const tokenBuffers = new Map<string, string>();
   let flushHandle = 0;
@@ -172,7 +177,17 @@ export const useDeliberation = defineStore("deliberation", () => {
     catch (error) { startError.value = String(error); }
   }
   async function submitAnswers(answers: [string, string][]) { if (!sessionId.value) return; awaiting.value = null; await api.answerQuestions(sessionId.value, answers); }
-  async function abandon() { if (sessionId.value) await api.abandon(sessionId.value); }
+  async function abandon() {
+    if (!sessionId.value || !running.value) return;
+    appendLog("state_changed", "abort requested");
+    try { await api.abandon(sessionId.value); }
+    catch (error) { appendLog("state_changed", `abort failed: ${error}`); }
+  }
+  function newSession() {
+    if (sessionId.value && running.value) void api.abandon(sessionId.value).catch(() => { /* backend gone or preview; UI resets regardless */ });
+    running.value = false; awaiting.value = null;
+    backToSetup();
+  }
   function seatOf(id: string): SeatLive { return live[id] ?? (live[id] = blankLive(id)); }
   function flushTokens() {
     flushHandle = 0; lastFlush = performance.now();
@@ -202,6 +217,7 @@ export const useDeliberation = defineStore("deliberation", () => {
     pendingMetrics.delete(round); pendingRuling = undefined; pendingSummary = undefined; pendingDowngraded = false;
   }
   function handle(e: EngineEvent) {
+    if (endedSessions.has(e.session)) return;
     if (sessionId.value && e.session !== sessionId.value) return;
     switch (e.type) {
       case "round_started":
@@ -250,7 +266,10 @@ export const useDeliberation = defineStore("deliberation", () => {
   }
   let unlisten: (() => void) | null = null;
   async function init() { if (!unlisten) unlisten = await onEngineEvent(handle); }
-  function backToSetup() { phase.value = "setup"; sessionId.value = null; }
+  function backToSetup() {
+    if (sessionId.value) endedSessions.add(sessionId.value);
+    phase.value = "setup"; sessionId.value = null;
+  }
   async function exportMarkdown(): Promise<string> { return sessionId.value ? api.exportSession(sessionId.value) : ""; }
   async function saveDump(): Promise<string> {
     if (!sessionId.value) throw new Error("no session");
@@ -261,6 +280,6 @@ export const useDeliberation = defineStore("deliberation", () => {
     problem, mode, maxRounds, quorumFraction, confidenceFloor, seats, panelists, mediator, validation, addPanelist, removeSeat, loadDemoPanel,
     phase, sessionId, running, currentRound, live, mediatorId, mediatorText, rounds, awaiting, verdict, failure, finalState, startError,
     acceptedUsage, usageSummary, estimatedCost, approximateOutputRate, logLines, convergence,
-    init, start, submitAnswers, abandon, backToSetup, exportMarkdown, saveDump, handle, setReducedEffects,
+    init, start, submitAnswers, abandon, newSession, backToSetup, exportMarkdown, saveDump, handle, setReducedEffects,
   };
 });
