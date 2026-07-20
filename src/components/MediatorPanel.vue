@@ -3,20 +3,22 @@ import { computed, ref } from "vue";
 import { useDeliberation } from "@/stores/deliberation";
 import { seatIdentity } from "@/lib/seat-identity";
 import { useStickToBottom } from "@/lib/stick-to-bottom";
+import { useTypewriter } from "@/lib/typewriter";
 import StreamMarkdown from "@/components/StreamMarkdown.vue";
 const store = useDeliberation();
-const state = computed(() => store.running ? "SYSTEM ONLINE" : "SYSTEM IDLE");
+const state = computed(() => store.running ? "in session" : "adjourned");
 const identity = computed(() => store.mediator ? seatIdentity(store.mediator) : "");
+const { text: revealed, typing } = useTypewriter(() => store.mediatorText, () => store.running && !store.instantTokens);
 const scroller = ref<HTMLElement | null>(null);
-const { onScroll } = useStickToBottom(scroller, () => store.mediatorText.length);
+const { onScroll } = useStickToBottom(scroller, () => revealed.value.length);
 </script>
 
 <template>
-  <article class="terminal-panel min-h-[9rem] overflow-hidden border-cyan/45">
-    <header class="flex items-center justify-between gap-2 border-b border-cyan/25 bg-cyan/7 px-4 py-2">
-      <div class="min-w-0"><span class="font-mono text-sm text-cyan">MEDIATOR // {{ store.mediator?.display_name ?? 'UNASSIGNED' }}</span><span v-if="identity" class="ml-3 font-mono text-[9px] text-fg-faint">{{ identity }}</span></div>
-      <span class="shrink-0 font-mono text-[9px] text-cyan">{{ state }}</span>
+  <article class="terminal-panel min-h-[9rem] overflow-hidden border-brass/45">
+    <header class="flex items-center justify-between gap-2 border-b border-brass/25 bg-brass/7 px-4 py-2">
+      <div class="flex min-w-0 items-baseline gap-2"><span class="font-mono text-[10px] uppercase tracking-[0.16em] text-brass">Mediator</span><span class="truncate font-display text-base text-foreground">{{ store.mediator?.display_name ?? 'unassigned' }}</span><span v-if="identity" class="hidden truncate font-mono text-[9px] text-fg-faint sm:inline">{{ identity }}</span></div>
+      <span class="shrink-0 font-mono text-[9px] uppercase tracking-wide text-brass">{{ state }}</span>
     </header>
-    <div ref="scroller" class="max-h-40 overflow-y-auto px-4 py-3 font-mono text-[11px] leading-[1.7] text-foreground/90" @scroll.passive="onScroll"><StreamMarkdown v-if="store.mediatorText" :text="store.mediatorText" :streaming="store.running" cursor-class="text-cyan" /><p v-else class="text-fg-faint">&gt; mediator waits for panelist packets</p></div>
+    <div ref="scroller" class="max-h-40 overflow-y-auto px-4 py-3 text-[13px] leading-[1.65] text-foreground/90" @scroll.passive="onScroll"><StreamMarkdown v-if="revealed" :text="revealed" :streaming="store.running" :typing="typing" cursor-class="text-brass" /><p v-else class="italic text-fg-faint">The mediator waits for the panel to speak.</p></div>
   </article>
 </template>

@@ -26,11 +26,11 @@ function choose(value: unknown) { if (typeof value !== "string") return; emit("a
 
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent :show-close-button="false" class="max-w-xl border-cyan/50 bg-surface-2 p-0" @escape-key-down="emit('update:open', false)">
-      <DialogTitle class="sr-only">Command palette</DialogTitle><DialogDescription class="sr-only">Run a cockpit command.</DialogDescription>
-      <div class="border-b border-line p-3"><Input ref="input" v-model="query" placeholder=">_ search commands" class="border-0 bg-transparent font-mono text-sm focus-visible:ring-0" /></div>
+    <DialogContent :show-close-button="false" class="max-w-xl border-brass/50 bg-surface-2 p-0" @escape-key-down="emit('update:open', false)">
+      <DialogTitle class="sr-only">Command palette</DialogTitle><DialogDescription class="sr-only">Run a command.</DialogDescription>
+      <div class="border-b border-line p-3"><Input ref="input" v-model="query" placeholder="Search commands…" class="border-0 bg-transparent text-sm focus-visible:ring-0" /></div>
       <ListboxRoot v-model="selected" class="p-2" @update:model-value="choose">
-        <ListboxItem v-for="entry in entries" :key="entry.id" :value="entry.id" as="button" class="flex w-full items-center justify-between px-3 py-2 text-left font-mono text-xs text-fg-muted outline-none data-[highlighted]:bg-cyan/15 data-[highlighted]:text-cyan">
+        <ListboxItem v-for="entry in entries" :key="entry.id" :value="entry.id" as="button" class="flex w-full items-center justify-between px-3 py-2 text-left font-mono text-xs text-fg-muted outline-none data-[highlighted]:bg-brass/15 data-[highlighted]:text-brass">
           <span>{{ entry.label }}</span><kbd v-if="entry.keys" class="border border-line px-1.5 py-0.5 text-[9px] text-fg-faint">{{ entry.keys }}</kbd>
         </ListboxItem>
         <p v-if="!entries.length" class="p-3 font-mono text-xs text-fg-faint">no command matches</p>

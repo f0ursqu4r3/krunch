@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { Cpu, Gauge, Terminal } from "@lucide/vue";
+import { Cpu, Gauge, Gavel } from "@lucide/vue";
 import { useDeliberation } from "@/stores/deliberation";
 import ConvergenceStrip from "@/components/ConvergenceStrip.vue";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -23,9 +23,9 @@ const round = computed(() => Math.min(store.maxRounds, Math.max(0, store.current
 
 <template>
   <header class="terminal-panel relative z-20 flex h-14 shrink-0 items-center gap-4 border-x-0 border-t-0 px-4">
-    <div class="flex items-center gap-2 text-cyan"><Terminal class="size-4" /><span class="font-display text-sm">KRUNCH//MC</span></div>
-    <div class="hidden border-l border-line pl-4 font-mono text-[10px] text-fg-muted xl:block">SID {{ store.sessionId?.slice(0, 8) ?? "OFFLINE" }} · {{ clock }}</div>
-    <div class="font-mono text-[10px] text-fg-muted">{{ store.finalState === 'finalizing' ? 'SYNTHESIZING…' : `R${String(round).padStart(2, '0')}/${String(store.maxRounds).padStart(2, '0')}` }}</div>
+    <div class="flex items-center gap-2 text-brass"><Gavel class="size-4" /><span class="font-display text-lg tracking-tight">Krunch</span></div>
+    <div class="hidden border-l border-line pl-4 font-mono text-[10px] text-fg-muted xl:block">{{ store.sessionId?.slice(0, 8) ?? "not in session" }} · {{ clock }}</div>
+    <div class="font-mono text-[10px] text-fg-muted">{{ store.finalState === 'finalizing' ? 'sealing the record…' : `round ${round}/${store.maxRounds}` }}</div>
     <ConvergenceStrip class="hidden lg:block" />
     <div class="ml-auto flex items-center gap-3 font-mono text-[10px]">
       <span class="hidden text-fg-muted md:inline"><Cpu class="mr-1 inline size-3 text-consensus" />{{ store.usageSummary.total.toLocaleString() }} tok <b :class="store.usageSummary.exact ? 'text-consensus' : 'text-brass'">{{ store.usageSummary.exact ? 'exact' : 'partial' }}</b></span>
@@ -33,7 +33,7 @@ const round = computed(() => Math.min(store.maxRounds, Math.max(0, store.current
       <span class="hidden text-fg-muted xl:inline">est. {{ store.estimatedCost === null ? '—' : `$${store.estimatedCost.toFixed(4)}` }}</span>
       <button v-if="store.running" class="border px-2 py-1 transition-colors" :class="abortArmed ? 'border-deadlock bg-deadlock/20 text-deadlock' : 'border-line text-fg-faint hover:border-deadlock hover:text-deadlock'" @click="abort">{{ abortArmed ? 'CONFIRM ABORT' : 'ABORT' }}</button>
       <ToggleGroup :model-value="props.effects" type="single" size="sm" variant="outline" class="hidden border border-line sm:flex" @update:model-value="emit('update:effects', ($event || 'ambient') as 'off' | 'ambient' | 'max')"><ToggleGroupItem value="off">Off</ToggleGroupItem><ToggleGroupItem value="ambient">Ambient</ToggleGroupItem><ToggleGroupItem value="max">Max</ToggleGroupItem></ToggleGroup>
-      <button class="border border-line px-2 py-1 text-fg-faint hover:border-cyan hover:text-cyan" @click="emit('palette')">⌘K</button>
+      <button class="border border-line px-2 py-1 text-fg-faint hover:border-brass hover:text-brass" @click="emit('palette')">⌘K</button>
     </div>
   </header>
 </template>

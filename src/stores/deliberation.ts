@@ -279,7 +279,7 @@ export const useDeliberation = defineStore("deliberation", () => {
   return {
     problem, mode, maxRounds, quorumFraction, confidenceFloor, seats, panelists, mediator, validation, addPanelist, removeSeat, loadDemoPanel,
     phase, sessionId, running, currentRound, live, mediatorId, mediatorText, rounds, awaiting, verdict, failure, finalState, startError,
-    acceptedUsage, usageSummary, estimatedCost, approximateOutputRate, logLines, convergence,
+    acceptedUsage, usageSummary, estimatedCost, approximateOutputRate, logLines, convergence, instantTokens,
     init, start, submitAnswers, abandon, newSession, backToSetup, exportMarkdown, saveDump, handle, setReducedEffects,
   };
 });

@@ -1,21 +1,56 @@
-/* Self-hosted font assets. Departure Mono is SIL OFL 1.1. */
+/* Self-hosted font assets for the deliberation chamber.
+   - Young Serif (OFL): display / gravitas — wordmark, titles, rulings, verdicts.
+   - Hanken Grotesk (OFL): body / UI — labels, buttons, streamed deliberation.
+   - Monaspace Xenon (OFL): the record — a slab-serif monospace for telemetry,
+     seat ids, confidence, tokens, timestamps, and the proceedings log. Reads
+     like a typed court ledger, not a terminal readout. */
 
 @font-face {
-  font-family: 'Departure Mono';
+  font-family: 'Young Serif';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('./departure-mono-regular.woff2') format('woff2');
+  src: url('./young-serif-400.woff2') format('woff2');
 }
 
 @font-face {
-  font-family: 'Fragment Mono';
-  font-style: italic;
+  font-family: 'Hanken Grotesk';
+  font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('./fragment-mono-400-italic.woff2') format('woff2');
+  src: url('./hanken-grotesk-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Hanken Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./hanken-grotesk-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Hanken Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./hanken-grotesk-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Hanken Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./hanken-grotesk-700.woff2') format('woff2');
 }
 
+@font-face {
+  font-family: 'Monaspace Xenon';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('./Monaspace Xenon/Monaspace Xenon Var.woff2') format('woff2');
+}
+
+/* Fragment Mono kept only as a monospace fallback in the stack. */
 @font-face {
   font-family: 'Fragment Mono';
   font-style: normal;

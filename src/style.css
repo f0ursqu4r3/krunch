@@ -4,108 +4,154 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --bg: oklch(0.105 0.012 242);
-  --bg-deep: oklch(0.075 0.013 245);
-  --surface: oklch(0.145 0.016 240);
-  --surface-2: oklch(0.185 0.019 238);
-  --surface-3: oklch(0.25 0.024 236);
-  --fg: oklch(0.93 0.018 165);
-  --fg-muted: oklch(0.72 0.035 174);
-  --fg-faint: oklch(0.52 0.028 200);
-  --line: oklch(0.32 0.035 210);
-  --line-strong: oklch(0.48 0.058 190);
-  --signal-green: oklch(0.83 0.17 151);
-  --signal-amber: oklch(0.84 0.15 84);
-  --signal-red: oklch(0.66 0.19 30);
-  --signal-cyan: oklch(0.82 0.12 210);
-  --signal-violet: oklch(0.71 0.14 302);
-  --brass: var(--signal-amber);
-  --brass-bright: oklch(0.91 0.13 88);
-  --brass-deep: oklch(0.62 0.13 78);
-  --consensus: var(--signal-green);
-  --continue: var(--signal-amber);
-  --deadlock: var(--signal-red);
-  --danger: var(--signal-red);
-  --radius: 0.35rem;
+  /* ── Warm chamber ──────────────────────────────────────────────────────
+     A dim, candle-lit room. Neutrals are warm brown-charcoal (hue ~55-60),
+     never cool/blue. Ink is warm parchment, not phosphor green. */
+  --bg: oklch(0.150 0.014 58);
+  --bg-deep: oklch(0.115 0.014 56);
+  --surface: oklch(0.196 0.016 58);
+  --surface-2: oklch(0.236 0.018 56);
+  --surface-3: oklch(0.290 0.020 54);
+  --fg: oklch(0.925 0.020 78);
+  --fg-muted: oklch(0.752 0.028 74);
+  --fg-faint: oklch(0.572 0.030 70);
+  --line: oklch(0.340 0.018 62);
+  --line-strong: oklch(0.500 0.034 66);
+
+  /* Aged brass — the single accent. Candlelight, brass fittings, the gavel. */
+  --brass: oklch(0.770 0.115 74);
+  --brass-bright: oklch(0.862 0.130 82);
+  --brass-deep: oklch(0.600 0.100 68);
+
+  /* Deliberation states as a heat scale: the room lit gold at consensus,
+     warm amber while it continues, cooling to ember red at deadlock. */
+  --consensus: oklch(0.840 0.135 85);
+  --continue: var(--brass);
+  --deadlock: oklch(0.605 0.160 33);
+  --danger: oklch(0.605 0.160 33);
+
+  --radius: 0.5rem;
   --effects-intensity: 0.55;
+
+  /* shadcn / reka-ui bindings */
   --background: var(--bg);
   --foreground: var(--fg);
   --card: var(--surface);
   --card-foreground: var(--fg);
   --popover: var(--surface-2);
   --popover-foreground: var(--fg);
-  --primary: var(--signal-green);
-  --primary-foreground: oklch(0.12 0.03 155);
+  --primary: var(--brass);
+  --primary-foreground: oklch(0.165 0.020 60);
   --secondary: var(--surface-2);
   --secondary-foreground: var(--fg);
   --muted: var(--surface-2);
   --muted-foreground: var(--fg-muted);
   --accent: var(--surface-3);
   --accent-foreground: var(--fg);
-  --destructive: var(--signal-red);
-  --destructive-foreground: oklch(0.96 0.01 25);
+  --destructive: var(--deadlock);
+  --destructive-foreground: oklch(0.960 0.010 60);
   --border: var(--line);
   --input: var(--surface-2);
-  --ring: var(--signal-cyan);
+  --ring: var(--brass);
 }
 
 @theme inline {
   --color-bg: var(--bg); --color-bg-deep: var(--bg-deep); --color-surface: var(--surface); --color-surface-2: var(--surface-2); --color-surface-3: var(--surface-3);
   --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-card-foreground: var(--card-foreground); --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground); --color-destructive: var(--destructive); --color-destructive-foreground: var(--destructive-foreground); --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring);
-  --color-brass: var(--signal-amber); --color-brass-bright: oklch(0.91 0.13 88); --color-brass-deep: oklch(0.62 0.13 78);
-  --color-consensus: var(--signal-green); --color-continue: var(--signal-amber); --color-deadlock: var(--signal-red); --color-danger: var(--signal-red); --color-cyan: var(--signal-cyan); --color-fg-muted: var(--fg-muted); --color-fg-faint: var(--fg-faint); --color-line: var(--line); --color-line-strong: var(--line-strong);
-  --font-display: "Departure Mono", "Fragment Mono", ui-monospace, monospace;
-  --font-sans: "Fragment Mono", ui-monospace, "SF Mono", monospace;
-  --font-mono: "Fragment Mono", ui-monospace, "SF Mono", monospace;
-  --radius-lg: var(--radius); --radius-md: calc(var(--radius) - 2px); --radius-sm: 0.1rem; --radius-xl: calc(var(--radius) + 4px);
+  --color-brass: var(--brass); --color-brass-bright: var(--brass-bright); --color-brass-deep: var(--brass-deep);
+  --color-consensus: var(--consensus); --color-continue: var(--continue); --color-deadlock: var(--deadlock); --color-danger: var(--danger); --color-fg-muted: var(--fg-muted); --color-fg-faint: var(--fg-faint); --color-line: var(--line); --color-line-strong: var(--line-strong);
+  --font-display: "Young Serif", Georgia, "Times New Roman", serif;
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "Monaspace Xenon", "Fragment Mono", ui-monospace, "SF Mono", monospace;
+  --radius-lg: var(--radius); --radius-md: calc(var(--radius) - 2px); --radius-sm: calc(var(--radius) - 4px); --radius-xl: calc(var(--radius) + 4px);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * { border-color: var(--line); }
 html, body, #app { height: 100%; }
-body { margin: 0; overflow: hidden; color: var(--fg); background: var(--bg-deep); font-family: var(--font-sans); font-size: 13px; font-feature-settings: "cv05" 1, "ss01" 1; -webkit-font-smoothing: antialiased; }
-.font-display { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.02em; }
-.phosphor { text-shadow: 0 0 calc(8px * var(--effects-intensity)) color-mix(in oklch, currentColor 48%, transparent); }
-.terminal-panel { background: linear-gradient(135deg, color-mix(in oklch, var(--surface) 94%, var(--signal-cyan)), var(--surface)); border: 1px solid var(--line); box-shadow: inset 0 1px 0 color-mix(in oklch, var(--fg) 6%, transparent); }
-.crt-layer::before, .crt-layer::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 40; }
-.crt-layer::before { opacity: calc(0.09 * var(--effects-intensity)); background: linear-gradient(transparent 50%, rgb(0 0 0 / 0.55) 50%); background-size: 100% 4px; }
-.crt-layer::after { opacity: calc(0.42 * var(--effects-intensity)); box-shadow: inset 0 0 15vw 2vw rgb(0 0 0 / 0.55); }
-body::after { content: ""; position: fixed; inset: 0; z-index: 41; pointer-events: none; opacity: calc(0.025 * var(--effects-intensity)); mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
-::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: var(--bg-deep); } ::-webkit-scrollbar-thumb { background: color-mix(in oklch, var(--signal-cyan) 35%, var(--surface-3)); } ::selection { background: color-mix(in oklch, var(--signal-green) 35%, transparent); color: var(--fg); }
+body { margin: 0; overflow: hidden; color: var(--fg); background: var(--bg); font-family: var(--font-sans); font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+.font-display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.005em; }
 
-@keyframes boot { from { opacity: 0; clip-path: inset(0 0 100% 0); } to { opacity: 1; clip-path: inset(0); } }
-@keyframes glitch { 0%, 88%, 100% { transform: none; filter: none; } 90% { transform: translate(2px, -1px); filter: hue-rotate(30deg); } 94% { transform: translate(-2px, 1px); } }
-@keyframes type-on { from { opacity: 0.4; } to { opacity: 1; } }
-@keyframes latch { 0% { transform: scale(0.985); filter: brightness(1.7); } 55% { transform: translateX(2px); } 100% { transform: none; filter: none; } }
+/* Panels are pieces of furniture in the room: a warm surface, a candle-lit top
+   edge, and a soft shadow so they sit on the table rather than float on glass. */
+.terminal-panel {
+  background: linear-gradient(180deg, color-mix(in oklch, var(--surface) 90%, var(--brass)) 0%, var(--surface) 44%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--fg) 7%, transparent), 0 10px 26px -18px oklch(0 0 0 / 0.75);
+  transition: border-color 260ms ease, box-shadow 260ms ease;
+}
+
+/* ── The signature moment: the room warms and brightens as the panel converges.
+   Driven by App.vue from mean confidence + cluster fraction; hue rides a heat
+   scale (amber → gold at consensus, → ember red at deadlock). @property makes
+   the hue/intensity smoothly transitionable frame-to-frame. */
+@property --glow-hue { syntax: "<number>"; inherits: true; initial-value: 74; }
+@property --glow-intensity { syntax: "<number>"; inherits: true; initial-value: 0.10; }
+.chamber-glow {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  transition: --glow-hue 900ms ease, --glow-intensity 900ms ease;
+  background: radial-gradient(150% 95% at 50% 112%, oklch(0.70 0.145 var(--glow-hue) / calc(0.55 * var(--glow-intensity) * var(--effects-intensity))) 0%, transparent 58%);
+}
+/* A soft warm vignette — the darkness at the edges of a candle-lit room. */
+.chamber::after { content: ""; position: fixed; inset: 0; z-index: 40; pointer-events: none; box-shadow: inset 0 0 20vw 2vw oklch(0.05 0.012 48 / calc(0.5 * var(--effects-intensity))); }
+/* A whisper of grain so the darks read as room, not a flat panel. */
+body::after { content: ""; position: fixed; inset: 0; z-index: 41; pointer-events: none; opacity: calc(0.018 * var(--effects-intensity)); mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+::-webkit-scrollbar { width: 9px; height: 9px; } ::-webkit-scrollbar-track { background: var(--bg-deep); } ::-webkit-scrollbar-thumb { background: color-mix(in oklch, var(--brass) 30%, var(--surface-3)); border-radius: 5px; } ::-webkit-scrollbar-thumb:hover { background: color-mix(in oklch, var(--brass) 50%, var(--surface-3)); } ::selection { background: color-mix(in oklch, var(--brass) 32%, transparent); color: var(--fg); }
+
+/* Press feedback: pressable surfaces confirm the click. The boot overlay opts
+   out — scaling a full-viewport surface reads as a glitch. */
+button { transition: transform 160ms var(--ease-out-expo), color 150ms ease, border-color 150ms ease, background-color 150ms ease; }
+button:not(.no-press):active { transform: scale(0.97); }
+
+@keyframes boot { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+@keyframes latch { 0% { transform: scale(0.985); } 60% { transform: scale(1.004); } 100% { transform: none; } }
 @keyframes shake { 0%, 100% { transform: none; } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
-@keyframes flicker { 0%, 100% { opacity: 1; } 48% { opacity: .88; } 50% { opacity: .58; } 53% { opacity: 1; } }
 @keyframes cursor { 50% { opacity: 0; } }
-.boot { animation: boot .42s var(--ease-out-expo) both; } .glitch { animation: glitch .55s steps(2, end); } .latch { animation: latch .35s var(--ease-out-expo); } .shake { animation: shake .3s steps(2, end); } .cursor { animation: cursor 1s steps(2,end) infinite; }
+.boot { animation: boot .5s var(--ease-out-expo) both; }
+.rise { animation: rise .38s var(--ease-out-expo) var(--rise-delay, 0ms) backwards; }
+.latch { animation: latch .4s var(--ease-out-expo); }
+.shake { animation: shake .3s steps(2, end); }
+.cursor { animation: cursor 1.05s steps(2, end) infinite; }
+/* Solid while the typewriter lays characters down; blinks only while waiting. */
+.cursor.typing { animation: none; }
 
-/* Streamed model markdown, styled to sit inside the terminal panels. Inherits
-   the container's font/size; only structural spacing + accents are set here. */
+/* Vue <Transition> presets. Exits are faster than entries — the system
+   responds snappier than it arrives. */
+.pop-enter-active { transition: opacity 180ms var(--ease-out-expo), transform 180ms var(--ease-out-expo); }
+.pop-leave-active { transition: opacity 120ms ease; }
+.pop-enter-from { opacity: 0; transform: translateY(4px); }
+.pop-leave-to { opacity: 0; }
+.fade-enter-active { transition: opacity 260ms ease; }
+.fade-leave-active { transition: opacity 150ms ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* ── Streamed deliberation, set as warm readable prose (Hanken), not a readout.
+   Only code stays in the Xenon record face. Inherits the container's size. */
 .markdown-body { display: inline; }
-.markdown-body > div { display: inline; } /* keep the trailing cursor inline */
-.markdown-body :where(p, ul, ol, pre, blockquote, table, h1, h2, h3, h4, h5, h6) { display: block; margin: 0 0 0.7em; }
+.markdown-body > div { display: inline; }
+.markdown-body :where(p, ul, ol, pre, blockquote, table, h1, h2, h3, h4, h5, h6) { display: block; margin: 0 0 0.72em; }
 .markdown-body :where(p, ul, ol, pre, blockquote, table, h1, h2, h3, h4, h5, h6):last-child { margin-bottom: 0; }
-.markdown-body :where(h1, h2, h3, h4, h5, h6) { color: var(--signal-cyan); font-weight: 400; letter-spacing: 0.02em; }
-.markdown-body h1 { font-size: 1.25em; } .markdown-body h2 { font-size: 1.15em; } .markdown-body h3 { font-size: 1.05em; }
+.markdown-body :where(h1, h2, h3, h4, h5, h6) { font-family: var(--font-display); color: var(--brass-bright); font-weight: 400; letter-spacing: -0.005em; line-height: 1.25; }
+.markdown-body h1 { font-size: 1.35em; } .markdown-body h2 { font-size: 1.2em; } .markdown-body h3 { font-size: 1.08em; }
 .markdown-body :where(strong, b) { color: var(--brass-bright); font-weight: 600; }
-.markdown-body :where(em, i) { color: var(--signal-cyan); font-style: italic; }
-.markdown-body a { color: var(--signal-cyan); text-decoration: underline; text-underline-offset: 2px; }
+.markdown-body :where(em, i) { color: var(--fg-muted); font-style: italic; }
+.markdown-body a { color: var(--brass); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: color-mix(in oklch, var(--brass) 55%, transparent); }
 .markdown-body :where(ul, ol) { padding-left: 1.4em; }
 .markdown-body ul { list-style: none; }
-.markdown-body ul > li::before { content: "›"; color: var(--brass); margin-left: -1em; margin-right: 0.5em; }
+.markdown-body ul > li::before { content: "\203A"; color: var(--brass); margin-left: -1em; margin-right: 0.5em; }
 .markdown-body ol { list-style: decimal; }
-.markdown-body li { margin: 0.15em 0; }
-.markdown-body :where(code) { font-family: var(--font-mono); background: color-mix(in oklch, var(--signal-cyan) 12%, transparent); border-radius: 3px; padding: 0.05em 0.3em; }
-.markdown-body pre { background: var(--bg-deep); border: 1px solid var(--line); border-radius: 4px; padding: 0.7em 0.9em; overflow-x: auto; }
+.markdown-body li { margin: 0.18em 0; }
+.markdown-body :where(code) { font-family: var(--font-mono); font-size: 0.92em; background: color-mix(in oklch, var(--brass) 12%, transparent); border-radius: 4px; padding: 0.05em 0.32em; }
+.markdown-body pre { background: var(--bg-deep); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 0.72em 0.9em; overflow-x: auto; }
 .markdown-body pre code { background: none; padding: 0; }
-.markdown-body blockquote { border-left: 2px solid var(--brass); padding-left: 0.8em; color: var(--fg-muted); }
-.markdown-body hr { border: none; border-top: 1px dashed var(--line-strong); margin: 0.8em 0; }
-.markdown-body :where(th, td) { border: 1px solid var(--line); padding: 0.25em 0.6em; text-align: left; }
-.markdown-body th { color: var(--brass); }
+.markdown-body blockquote { border-left: 2px solid var(--brass); padding-left: 0.85em; color: var(--fg-muted); font-style: italic; }
+.markdown-body hr { border: none; border-top: 1px dashed var(--line-strong); margin: 0.85em 0; }
+.markdown-body :where(th, td) { border: 1px solid var(--line); padding: 0.28em 0.6em; text-align: left; }
+.markdown-body th { color: var(--brass); font-weight: 600; }
 
 @media (max-width: 1040px) { .log-rail { display: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; } }
