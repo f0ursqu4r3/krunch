@@ -44,6 +44,11 @@ enum CliEvent {
     Text(String),
     /// Final token usage, reported once near end of stream.
     Usage(Usage),
+    /// A terminal failure the CLI reported *on stdout* (auth expiry, quota,
+    /// model refusal). The CLI writes these into the JSONL stream and exits
+    /// non-zero with an empty stderr, so the exit-code path alone can't explain
+    /// them — we must catch them here to surface a real reason.
+    Error(String),
 }
 
 impl CliKind {
@@ -85,6 +90,19 @@ fn parse_claude(v: &Value) -> Option<CliEvent> {
             None
         }
         "result" => {
+            // A terminal result flagged `is_error` carries the CLI's failure
+            // message in `result` — and only on stdout, where our stderr capture
+            // never sees it. Surface it so the seat reports *why* it failed
+            // (e.g. expired subscription auth) instead of a bare non-zero exit.
+            if v.get("is_error").and_then(Value::as_bool).unwrap_or(false) {
+                let msg = v
+                    .get("result")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.trim().is_empty())
+                    .unwrap_or("claude reported an error")
+                    .to_string();
+                return Some(CliEvent::Error(msg));
+            }
             let u = v.get("usage")?;
             let mut usage = usage_from(u);
             // Claude reports cache writes/reads separately from `input_tokens`; the
@@ -117,6 +135,31 @@ fn parse_codex(v: &Value) -> Option<CliEvent> {
         }
         "turn.completed" => Some(CliEvent::Usage(usage_from(v.get("usage")?))),
         _ => None,
+    }
+}
+
+/// Classify a CLI-reported error message into a permanent provider error. Auth
+/// failures (an expired subscription/OAuth session) are the common case and get
+/// their own kind so the record and the seat reason read `permanent/auth` rather
+/// than an opaque `permanent/other`.
+fn cli_error(kind: CliKind, message: &str) -> ProviderError {
+    let program = match kind {
+        CliKind::Claude => "claude",
+        CliKind::Codex => "codex",
+    };
+    let lower = message.to_lowercase();
+    let permanent = if ["authenticat", "oauth", "unauthorized", "log in", "login", "credential"]
+        .iter()
+        .any(|needle| lower.contains(needle))
+    {
+        PermanentKind::Auth
+    } else {
+        PermanentKind::Other
+    };
+    ProviderError::Permanent {
+        kind: permanent,
+        status: None,
+        detail: format!("`{program}`: {}", message.trim()),
     }
 }
 
@@ -181,12 +224,20 @@ async fn pump<R: tokio::io::AsyncRead + Unpin>(
     let mut usage = Usage::default();
     let mut buf = [0u8; 4096];
 
-    let mut apply = |ev: CliEvent, text: &mut String, usage: &mut Usage| match ev {
-        CliEvent::Text(t) => {
-            text.push_str(&t);
-            sink.on_token(&t);
+    let mut apply = |ev: CliEvent,
+                     text: &mut String,
+                     usage: &mut Usage|
+     -> Result<(), ProviderError> {
+        match ev {
+            CliEvent::Text(t) => {
+                text.push_str(&t);
+                sink.on_token(&t);
+            }
+            CliEvent::Usage(u) => *usage = u,
+            // A terminal error the CLI reported on stdout ends the stream.
+            CliEvent::Error(msg) => return Err(cli_error(kind, &msg)),
         }
-        CliEvent::Usage(u) => *usage = u,
+        Ok(())
     };
 
     loop {
@@ -203,14 +254,14 @@ async fn pump<R: tokio::io::AsyncRead + Unpin>(
         while let Some(nl) = line_buf.find('\n') {
             let line: String = line_buf.drain(..=nl).collect();
             if let Some(ev) = kind.parse_line(&line) {
-                apply(ev, &mut text, &mut usage);
+                apply(ev, &mut text, &mut usage)?;
             }
         }
     }
     // Flush any buffered UTF-8 tail and a final newline-less line.
     line_buf.push_str(&streamer.finish());
     if let Some(ev) = kind.parse_line(&line_buf) {
-        apply(ev, &mut text, &mut usage);
+        apply(ev, &mut text, &mut usage)?;
     }
     Ok((text, usage))
 }
@@ -353,15 +404,24 @@ impl Agent for CliAgent {
             detail: e.to_string(),
         })?;
         if !status.success() {
+            // A terminal error line on stdout (auth expiry, quota) is caught in
+            // `pump` above and returns early; reaching here means the CLI exited
+            // non-zero without one. stderr is often empty in that case, so name
+            // the likely cause rather than emitting a bare exit code.
             let mut err = String::new();
             if let Some(mut stderr) = child.stderr.take() {
                 use tokio::io::AsyncReadExt;
                 let _ = stderr.read_to_string(&mut err).await;
             }
+            let detail = if err.trim().is_empty() {
+                format!("`{program}` exited with {status} (no stderr — check it is installed and authenticated: run `{program}`)")
+            } else {
+                format!("`{program}` exited with {status}: {}", err.trim())
+            };
             return Err(ProviderError::Permanent {
                 kind: PermanentKind::Other,
                 status: None,
-                detail: format!("`{program}` exited with {status}: {}", err.trim()),
+                detail,
             });
         }
 
@@ -412,6 +472,64 @@ mod tests {
             CliKind::Claude.parse_line(result),
             Some(CliEvent::Usage(Usage { input_tokens: Some(12), output_tokens: Some(58) }))
         );
+    }
+
+    #[test]
+    fn claude_result_flags_stdout_error() {
+        // Auth expiry: the CLI reports it as a terminal `result` with `is_error`
+        // on *stdout* (stderr is empty), so it must be caught as an Error event,
+        // not parsed as usage.
+        let line = r#"{"type":"result","subtype":"success","is_error":true,"result":"Failed to authenticate: OAuth session expired and could not be refreshed","usage":{"input_tokens":0,"output_tokens":0}}"#;
+        assert_eq!(
+            CliKind::Claude.parse_line(line),
+            Some(CliEvent::Error(
+                "Failed to authenticate: OAuth session expired and could not be refreshed".into()
+            ))
+        );
+
+        // A normal (non-error) result still parses as usage.
+        let ok = r#"{"type":"result","is_error":false,"result":"hi","usage":{"input_tokens":3,"output_tokens":4}}"#;
+        assert_eq!(
+            CliKind::Claude.parse_line(ok),
+            Some(CliEvent::Usage(Usage { input_tokens: Some(3), output_tokens: Some(4) }))
+        );
+    }
+
+    #[test]
+    fn cli_error_classifies_auth_vs_other() {
+        let auth = cli_error(CliKind::Claude, "Failed to authenticate: OAuth session expired");
+        assert!(!auth.is_transient());
+        assert_eq!(auth.kind_label(), "permanent/auth");
+        assert!(auth.to_string().contains("authenticate"));
+        // Non-auth messages stay `other`.
+        assert_eq!(cli_error(CliKind::Codex, "disk full").kind_label(), "permanent/other");
+    }
+
+    #[tokio::test]
+    async fn pump_surfaces_stdout_error_as_classified_permanent() {
+        // The real failing stream: a system init line, then a terminal result
+        // flagged is_error. pump must return a classified Auth error carrying the
+        // message — not silently yield empty text and defer to a bare exit code.
+        let payload = concat!(
+            r#"{"type":"system","subtype":"init"}"#,
+            "\n",
+            r#"{"type":"result","subtype":"success","is_error":true,"result":"Failed to authenticate: OAuth session expired and could not be refreshed","usage":{"input_tokens":0,"output_tokens":0}}"#,
+            "\n",
+        )
+        .to_string();
+
+        let (mut w, mut r) = tokio::io::duplex(1024);
+        let writer = tokio::spawn(async move {
+            use tokio::io::AsyncWriteExt;
+            w.write_all(payload.as_bytes()).await.unwrap();
+            drop(w);
+        });
+
+        let err = pump(&mut r, CliKind::Claude, &mut |_c: &str| {}).await.unwrap_err();
+        writer.await.unwrap();
+
+        assert_eq!(err.kind_label(), "permanent/auth");
+        assert!(err.to_string().contains("OAuth session expired"));
     }
 
     #[test]
