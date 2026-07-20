@@ -94,5 +94,8 @@ useIntersectionObserver(heroCard, ([entry]) => { heroVisible.value = entry.isInt
         <SeatEditor v-if="selectedSeat" :key="selectedSeat.id" :seat="selectedSeat" :removable="selectedSeat.role !== 'mediator'" @remove="removeSelected" />
       </section>
     </div>
+    <Transition name="fade">
+      <div v-show="!heroVisible" class="sticky bottom-0 z-20"><ConvenePanel variant="bar" /></div>
+    </Transition>
   </main>
 </template>
