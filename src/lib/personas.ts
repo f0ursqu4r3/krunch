@@ -45,6 +45,13 @@ export function personaById(id: string): Persona | undefined {
   return BY_ID.get(id);
 }
 
+/** Human-readable labels for a seat's persona ids, in array order; unknown ids dropped. */
+export function personaLabels(ids: string[]): string[] {
+  return ids
+    .map((id) => personaById(id)?.label)
+    .filter((label): label is string => Boolean(label));
+}
+
 export function personasForGroup(group: PersonaGroup): Persona[] {
   return PERSONAS.filter((p) => p.group === group);
 }
