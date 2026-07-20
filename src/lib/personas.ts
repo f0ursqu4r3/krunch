@@ -47,9 +47,14 @@ export function personaById(id: string): Persona | undefined {
 
 /** Human-readable labels for a seat's persona ids, in array order; unknown ids dropped. */
 export function personaLabels(ids: string[]): string[] {
+  // Canonical group order (temperament → domain → mediator), matching
+  // resolveSystemPrompt, so chips read consistently regardless of the order
+  // ids were added to the seat.
   return ids
-    .map((id) => personaById(id)?.label)
-    .filter((label): label is string => Boolean(label));
+    .map((id) => personaById(id))
+    .filter((persona): persona is Persona => Boolean(persona))
+    .sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group))
+    .map((persona) => persona.label);
 }
 
 export function personasForGroup(group: PersonaGroup): Persona[] {
