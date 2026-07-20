@@ -425,8 +425,11 @@ Then replace the panel `<section>` (the current line beginning
 ```
 
 (Leave the matter section, the rules section, and the `<aside>` readiness panel
-unchanged this task — Task 4 replaces them. The unused `scrollRoot`/`heroCard`/
-`heroVisible` refs are wired to the DOM in Task 5; they type-check fine unused.)
+unchanged this task — Task 4 replaces them. `scrollRoot`/`heroCard`/`heroVisible` are
+already consumed by `useIntersectionObserver` in the script, so `noUnusedLocals` is
+satisfied even though their DOM bindings (`ref="…"`) only arrive in Tasks 4–5. The
+`import { Plus, Play, Sparkles }` line stays fully used this task — the old aside still
+renders `<Play>` — and is trimmed in Task 4.)
 
 - [ ] **Step 4: Type check**
 
@@ -508,9 +511,14 @@ const summary = computed(() => `1 med · ${store.panelists.length} ${seatWord.va
 
 - [ ] **Step 2: Wire the hero + rules into `SetupScreen.vue`**
 
-Add the import to the `<script setup>` (below the `SeatEditor` import):
+Add the `ConvenePanel` import to the `<script setup>` (below the `SeatEditor` import),
+**and** trim `Play` from the lucide import — Convene now lives in `ConvenePanel`, so
+`SetupScreen` no longer renders `<Play>` and `noUnusedLocals` would otherwise fail:
 
 ```ts
+// change the existing lucide import from `{ Plus, Play, Sparkles }` to:
+import { Plus, Sparkles } from "@lucide/vue";
+// add:
 import ConvenePanel from "@/components/ConvenePanel.vue";
 ```
 
