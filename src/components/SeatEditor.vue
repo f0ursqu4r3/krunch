@@ -116,6 +116,7 @@ onMounted(refresh);
         Advanced
         <span v-if="!showAdvanced" class="ml-1 normal-case tracking-normal text-fg-faint">— base URL, sampling, credentials</span>
       </button>
+      <p v-if="needsKey && saved === false" class="mt-2 font-mono text-[10px] text-deadlock">[!] API key not stored — expand Advanced to add it</p>
       <div v-if="showAdvanced" class="mt-3 grid grid-cols-2 gap-x-4 gap-y-4 font-mono text-[10px] text-fg-muted">
         <label v-if="http" class="col-span-2">BASE URL<Input v-model="seat.base_url" class="mt-1 h-9 bg-surface" @blur="refresh" /></label>
         <label>TEMPERATURE<Input v-model.number="seat.sampling.temperature" type="number" step=".05" min="0" max="2" class="mt-1 h-9 bg-surface" /></label>
