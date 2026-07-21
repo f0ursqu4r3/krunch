@@ -9,7 +9,7 @@ use krunch_core::config::SessionConfig;
 use krunch_core::ids::SessionId;
 use krunch_core::state::SessionState;
 use krunch_engine::{Engine, UserGate};
-use krunch_store::{SessionSummary, Store};
+use krunch_store::{PresetRow, SessionSummary, Store};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::mpsc;
@@ -191,4 +191,38 @@ pub async fn save_session_dump(state: State<'_, AppState>, session_id: String) -
 #[tauri::command]
 pub fn core_version() -> String {
     krunch_core::version().to_string()
+}
+
+/// Read a raw setting value (opaque JSON) by key.
+#[tauri::command]
+pub async fn get_setting(state: State<'_, AppState>, key: String) -> Result<Option<String>, String> {
+    state.store.clone().get_setting(key).await.map_err(|e| e.to_string())
+}
+
+/// Upsert a setting value.
+#[tauri::command]
+pub async fn set_setting(state: State<'_, AppState>, key: String, value: String) -> Result<(), String> {
+    state.store.clone().set_setting(key, value).await.map_err(|e| e.to_string())
+}
+
+/// List saved panel presets, newest first.
+#[tauri::command]
+pub async fn list_presets(state: State<'_, AppState>) -> Result<Vec<PresetRow>, String> {
+    state.store.clone().list_presets().await.map_err(|e| e.to_string())
+}
+
+/// Save (upsert on name) a panel preset; returns the row id.
+#[tauri::command]
+pub async fn save_preset(
+    state: State<'_, AppState>,
+    name: String,
+    config_json: String,
+) -> Result<String, String> {
+    state.store.clone().save_preset(name, config_json).await.map_err(|e| e.to_string())
+}
+
+/// Delete a preset by id.
+#[tauri::command]
+pub async fn delete_preset(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    state.store.clone().delete_preset(id).await.map_err(|e| e.to_string())
 }

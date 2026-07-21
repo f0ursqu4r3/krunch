@@ -58,6 +58,11 @@ pub fn run() {
             commands::has_credential,
             commands::export_session,
             commands::save_session_dump,
+            commands::get_setting,
+            commands::set_setting,
+            commands::list_presets,
+            commands::save_preset,
+            commands::delete_preset,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
