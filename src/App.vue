@@ -51,10 +51,14 @@ onBeforeUnmount(() => { document.removeEventListener("keydown", keydown); cancel
     <CommandPalette :open="palette" :phase="store.phase" @update:open="$event ? openPalette() : closePalette()" @action="act" />
     <HistoryDialog v-model:open="history" />
     <Transition name="fade">
-      <button v-if="booting" class="no-press absolute inset-0 z-50 grid place-items-center bg-bg" @click="booting = false">
-        <div class="boot text-center">
-          <p class="font-display text-6xl text-signal">Krunch</p>
-          <p class="mt-4 font-mono text-[10px] uppercase tracking-[0.34em] text-fg-faint">the deliberation chamber</p>
+      <button v-if="booting" class="no-press absolute inset-0 z-50 grid place-items-center bg-bg-deep" @click="booting = false">
+        <div class="boot text-left font-mono text-[11px] leading-5 text-signal">
+          <p class="font-display glow-text text-4xl text-signal-bright">KRUNCH</p>
+          <p class="mt-3 text-fg-faint">// deliberation ops terminal</p>
+          <pre class="mt-4 text-fg-muted">&gt; initializing signal bus ......... <span class="text-signal">OK</span>
+&gt; mounting panel channels ......... <span class="text-signal">OK</span>
+&gt; calibrating oscilloscope ........ <span class="text-signal">OK</span>
+&gt; handshake complete <span class="cursor">_</span></pre>
         </div>
       </button>
     </Transition>
