@@ -13,7 +13,7 @@ const summary = computed(() => `1 med · ${store.panelists.length} ${seatWord.va
 
 <template>
   <div v-if="variant === 'card'" class="terminal-panel flex flex-col p-4">
-    <p class="font-mono text-[11px] uppercase tracking-[0.14em] text-brass">Readiness</p>
+    <p class="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Readiness</p>
     <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 font-mono text-[10px]">
       <dt class="text-fg-faint">panel</dt><dd class="text-right text-fg-muted">1 med · {{ store.panelists.length }} {{ seatWord }}</dd>
       <dt class="text-fg-faint">mode</dt><dd class="text-right text-fg-muted">{{ store.mode }}</dd>

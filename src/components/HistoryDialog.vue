@@ -55,7 +55,7 @@ function fmt(ts: number): string { return new Date(ts).toLocaleString(); }
   <Dialog v-model:open="open">
     <DialogScrollContent class="max-w-4xl">
       <DialogHeader>
-        <DialogTitle class="font-display text-brass">Past deliberations</DialogTitle>
+        <DialogTitle class="font-display text-signal">Past deliberations</DialogTitle>
         <DialogDescription class="font-mono text-[10px] uppercase tracking-[0.14em]">Read-only review of stored sessions.</DialogDescription>
       </DialogHeader>
       <div class="grid min-h-0 gap-4 md:grid-cols-[18rem_minmax(0,1fr)]">
@@ -64,7 +64,7 @@ function fmt(ts: number): string { return new Date(ts).toLocaleString(); }
           <li v-for="s in sessions" :key="s.id">
             <button
               class="w-full rounded px-2 py-1.5 text-left hover:bg-surface"
-              :class="selected?.id === s.id ? 'bg-surface text-brass' : 'text-fg-muted'"
+              :class="selected?.id === s.id ? 'bg-surface text-signal' : 'text-fg-muted'"
               @click="openSession(s)"
             >
               <span class="line-clamp-2">{{ s.problem || "(untitled)" }}</span>

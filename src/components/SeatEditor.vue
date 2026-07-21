@@ -54,7 +54,7 @@ onMounted(refresh);
 <template>
   <article class="terminal-panel p-5">
     <header class="mb-4 flex items-center gap-2 border-b border-line pb-3">
-      <span class="rounded border px-1.5 py-0.5 font-mono text-[9px] tracking-wide" :class="seat.role === 'mediator' ? 'border-brass-deep/60 text-brass' : 'border-line-strong text-fg-faint'">{{ seat.role === 'mediator' ? 'MED' : 'SEAT' }}</span>
+      <span class="rounded border px-1.5 py-0.5 font-mono text-[9px] tracking-wide" :class="seat.role === 'mediator' ? 'border-signal-deep/60 text-signal' : 'border-line-strong text-fg-faint'">{{ seat.role === 'mediator' ? 'MED' : 'SEAT' }}</span>
       <input v-model="seat.display_name" class="min-w-0 flex-1 bg-transparent font-display text-lg text-foreground outline-none" />
       <Button v-if="removable" size="xs" variant="ghost" class="text-deadlock" @click="$emit('remove')">remove</Button>
     </header>
@@ -107,12 +107,12 @@ onMounted(refresh);
       <label class="col-span-2">CUSTOM (ADDENDUM)<Textarea v-model="seat.system_prompt" rows="2" placeholder="optional extra instructions, appended after the persona" class="mt-1 resize-y bg-surface text-[11px]" /></label>
 
       <p v-if="seat.provider === 'demo'" class="col-span-2 text-consensus">offline demo agent, no key required</p>
-      <p v-if="seat.provider === 'claude_cli' || seat.provider === 'codex_cli'" class="col-span-2 text-brass">uses local subscription CLI</p>
+      <p v-if="seat.provider === 'claude_cli' || seat.provider === 'codex_cli'" class="col-span-2 text-signal">uses local subscription CLI</p>
     </div>
 
     <div class="mt-4 border-t border-line pt-3">
-      <button type="button" class="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-fg-muted transition-colors hover:text-brass" @click="showAdvanced = !showAdvanced">
-        <ChevronRight class="size-3 text-brass transition-transform" :class="{ 'rotate-90': showAdvanced }" />
+      <button type="button" class="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-fg-muted transition-colors hover:text-signal" @click="showAdvanced = !showAdvanced">
+        <ChevronRight class="size-3 text-signal transition-transform" :class="{ 'rotate-90': showAdvanced }" />
         Advanced
         <span v-if="!showAdvanced" class="ml-1 normal-case tracking-normal text-fg-faint">— base URL, sampling, credentials</span>
       </button>

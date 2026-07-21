@@ -65,7 +65,7 @@ onBeforeUnmount(() => { document.removeEventListener("keydown", keydown); cancel
     <Transition name="fade">
       <button v-if="booting" class="no-press absolute inset-0 z-50 grid place-items-center bg-bg" @click="booting = false">
         <div class="boot text-center">
-          <p class="font-display text-6xl text-brass">Krunch</p>
+          <p class="font-display text-6xl text-signal">Krunch</p>
           <p class="mt-4 font-mono text-[10px] uppercase tracking-[0.34em] text-fg-faint">the deliberation chamber</p>
         </div>
       </button>

@@ -17,13 +17,13 @@ const modelLine = computed(() => (props.seat.provider === "demo" ? "demo" : `${p
 <template>
   <button type="button" :aria-pressed="selected" @click="$emit('select')"
     class="w-full rounded-lg border border-l-2 border-line p-3 text-left transition-colors hover:border-line-strong"
-    :class="selected ? 'border-line-strong border-l-brass bg-surface' : 'border-l-transparent bg-bg-deep/60'">
+    :class="selected ? 'border-line-strong border-l-signal bg-surface' : 'border-l-transparent bg-bg-deep/60'">
     <div class="flex items-center gap-2">
-      <span class="rounded border px-1.5 py-0.5 font-mono text-[9px] tracking-wide" :class="isMediator ? 'border-brass-deep/60 text-brass' : 'border-line-strong text-fg-faint'">{{ isMediator ? 'MED' : 'SEAT' }}</span>
+      <span class="rounded border px-1.5 py-0.5 font-mono text-[9px] tracking-wide" :class="isMediator ? 'border-signal-deep/60 text-signal' : 'border-line-strong text-fg-faint'">{{ isMediator ? 'MED' : 'SEAT' }}</span>
       <span class="min-w-0 flex-1 truncate font-display text-sm text-foreground">{{ seat.display_name }}</span>
     </div>
     <div class="mt-2 flex flex-wrap items-center gap-1.5">
-      <span v-for="chip in chips" :key="chip" class="rounded-full bg-brass/15 px-2 py-0.5 font-mono text-[10px] text-brass-bright">{{ chip }}</span>
+      <span v-for="chip in chips" :key="chip" class="rounded-full bg-signal/15 px-2 py-0.5 font-mono text-[10px] text-signal-bright">{{ chip }}</span>
       <span class="font-mono text-[10px] text-fg-faint">{{ chips.length ? '· ' : '' }}{{ modelLine }}</span>
     </div>
   </button>
