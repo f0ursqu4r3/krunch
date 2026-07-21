@@ -75,31 +75,61 @@ html, body, #app { height: 100%; }
 body { margin: 0; overflow: hidden; color: var(--fg); background: var(--bg); font-family: var(--font-sans); font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 .font-display { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em; text-transform: uppercase; }
 
-/* Panels are pieces of furniture in the room: a warm surface, a candle-lit top
-   edge, and a soft shadow so they sit on the table rather than float on glass. */
+/* HUD panel: sharp graphite surface, hairline border, a phosphor top edge, and
+   clipped/notched top-right corner. Corner bracket drawn with the ::before. */
 .terminal-panel {
-  background: linear-gradient(180deg, color-mix(in oklch, var(--surface) 90%, var(--signal)) 0%, var(--surface) 44%);
+  position: relative;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--fg) 7%, transparent), 0 10px 26px -18px oklch(0 0 0 / 0.75);
-  transition: border-color 260ms ease, box-shadow 260ms ease;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklch, var(--signal) calc(6% * var(--effects-intensity)), transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--signal) 10%, transparent),
+    0 0 calc(28px * var(--effects-intensity)) -14px color-mix(in oklch, var(--signal) 60%, transparent);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  transition: border-color 240ms ease, box-shadow 240ms ease;
+}
+.terminal-panel::before {
+  content: ""; position: absolute; top: 6px; left: 6px; width: 10px; height: 10px;
+  border-top: 1px solid var(--signal); border-left: 1px solid var(--signal);
+  opacity: calc(0.5 * var(--effects-intensity)); pointer-events: none;
 }
 
-/* ── The signature moment: the room warms and brightens as the panel converges.
-   Driven by App.vue from mean confidence + cluster fraction; hue rides a heat
-   scale (amber → gold at consensus, → ember red at deadlock). @property makes
-   the hue/intensity smoothly transitionable frame-to-frame. */
-@property --glow-hue { syntax: "<number>"; inherits: true; initial-value: 74; }
-@property --glow-intensity { syntax: "<number>"; inherits: true; initial-value: 0.10; }
-.chamber-glow {
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  transition: --glow-hue 900ms ease, --glow-intensity 900ms ease;
-  background: radial-gradient(150% 95% at 50% 112%, oklch(0.70 0.145 var(--glow-hue) / calc(0.55 * var(--glow-intensity) * var(--effects-intensity))) 0%, transparent 58%);
+/* Moving dot/line grid behind everything — depth + "the system is running".
+   Transform-only animation (GPU-cheap). Fades out with --effects-intensity. */
+.hud-grid {
+  position: fixed; inset: -40px; z-index: 0; pointer-events: none;
+  opacity: calc(0.5 * var(--effects-intensity));
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--signal) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--signal) 8%, transparent) 1px, transparent 1px);
+  background-size: 44px 44px;
+  animation: grid-drift 18s linear infinite;
+  mask-image: radial-gradient(120% 120% at 50% 40%, #000 30%, transparent 90%);
 }
-/* A soft warm vignette — the darkness at the edges of a candle-lit room. */
-.chamber::after { content: ""; position: fixed; inset: 0; z-index: 40; pointer-events: none; box-shadow: inset 0 0 20vw 2vw oklch(0.05 0.012 48 / calc(0.5 * var(--effects-intensity))); }
-/* A whisper of grain so the darks read as room, not a flat panel. */
-body::after { content: ""; position: fixed; inset: 0; z-index: 41; pointer-events: none; opacity: calc(0.018 * var(--effects-intensity)); mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.hud-grid::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 40%, color-mix(in oklch, var(--signal) 22%, transparent) 50%, transparent 60%);
+  background-size: 300% 300%;
+  animation: dataflow 9s ease-in-out infinite;
+  opacity: calc(0.4 * var(--effects-intensity));
+}
+@keyframes grid-drift { to { transform: translate(44px, 44px); } }
+@keyframes dataflow { 0%,100% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } }
+
+/* Phosphor glow helpers — apply where a neon element should bloom. */
+.glow-text { text-shadow: 0 0 calc(8px * var(--effects-intensity)) color-mix(in oklch, currentColor 70%, transparent); }
+.glow-edge { box-shadow: 0 0 calc(16px * var(--effects-intensity)) -6px color-mix(in oklch, var(--signal) 80%, transparent); }
+
+/* Glitch: brief RGB-split shudder on state changes / errors. */
+@keyframes glitch {
+  0%,100% { transform: none; clip-path: none; }
+  20% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); text-shadow: 1.5px 0 var(--deadlock), -1.5px 0 var(--signal); }
+  60% { transform: translateX(-1px); text-shadow: -1.5px 0 var(--deadlock), 1.5px 0 var(--signal); }
+  80% { transform: translateX(1px); }
+}
+.glitch { animation: glitch 320ms steps(3, end); }
 
 ::-webkit-scrollbar { width: 9px; height: 9px; } ::-webkit-scrollbar-track { background: var(--bg-deep); } ::-webkit-scrollbar-thumb { background: color-mix(in oklch, var(--signal) 30%, var(--surface-3)); border-radius: 5px; } ::-webkit-scrollbar-thumb:hover { background: color-mix(in oklch, var(--signal) 50%, var(--surface-3)); } ::selection { background: color-mix(in oklch, var(--signal) 32%, transparent); color: var(--fg); }
 
