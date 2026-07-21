@@ -196,3 +196,16 @@ async fn unknown_session_state_update_is_not_found() {
     let err = store.set_state(SessionId::new(), SessionState::Running).await.unwrap_err();
     assert!(matches!(err, StoreError::NotFound(_)));
 }
+
+#[test]
+fn schema_version_is_two() {
+    assert_eq!(krunch_store::schema::SCHEMA_VERSION, 2);
+}
+
+#[tokio::test]
+async fn migrate_opens_and_is_idempotent() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("krunch.sqlite");
+    let _first = Store::open(&path).unwrap();  // creates + migrates (fresh DB → v2)
+    let _second = Store::open(&path).unwrap(); // re-open runs migrate() again, no error
+}

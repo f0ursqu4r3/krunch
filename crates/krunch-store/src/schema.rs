@@ -5,7 +5,7 @@
 use rusqlite::Connection;
 
 /// Bump when the DDL changes; `migrate` is idempotent per version.
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 const DDL: &str = r#"
 CREATE TABLE IF NOT EXISTS sessions (
@@ -111,6 +111,27 @@ CREATE TABLE IF NOT EXISTS error_records (
     created_at          INTEGER NOT NULL
 );
 
+-- App preferences + restore-last-setup singleton (opaque JSON values).
+CREATE TABLE IF NOT EXISTS app_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+-- Named, reusable panel presets (roster + rules, NO problem). Opaque JSON.
+CREATE TABLE IF NOT EXISTS panel_presets (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    config_json TEXT NOT NULL,
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL
+);
+
+-- Per-session pre-resolution editing snapshot, for faithful clone-as-new.
+CREATE TABLE IF NOT EXISTS session_setup (
+    session_id TEXT PRIMARY KEY REFERENCES sessions(id),
+    setup_json TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);
 "#;
 
@@ -120,8 +141,14 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let existing: Option<i64> = conn
         .query_row("SELECT version FROM schema_version LIMIT 1", [], |r| r.get(0))
         .ok();
-    if existing.is_none() {
-        conn.execute("INSERT INTO schema_version (version) VALUES (?1)", [SCHEMA_VERSION])?;
+    match existing {
+        None => {
+            conn.execute("INSERT INTO schema_version (version) VALUES (?1)", [SCHEMA_VERSION])?;
+        }
+        Some(v) if v < SCHEMA_VERSION => {
+            conn.execute("UPDATE schema_version SET version = ?1", [SCHEMA_VERSION])?;
+        }
+        _ => {}
     }
     Ok(())
 }
