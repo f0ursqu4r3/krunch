@@ -73,6 +73,26 @@ export interface SessionDto {
   updated_at: number;
 }
 
+export interface PresetRow {
+  id: string;
+  name: string;
+  config_json: string;
+  updated_at: number;
+}
+
+/**
+ * The frontend editing snapshot persisted as opaque JSON (last-setup, presets,
+ * and per-session setup). camelCase because only the frontend reads it.
+ */
+export interface SetupSnapshot {
+  problem: string;
+  mode: InteractionMode;
+  maxRounds: number;
+  quorumFraction: number;
+  confidenceFloor: number;
+  seats: SeatConfig[];
+}
+
 export interface StartDto {
   session_id: string;
   created: boolean;

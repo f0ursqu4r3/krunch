@@ -2,15 +2,15 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { EngineEvent, SessionConfig, SessionDto, StartDto } from "./types";
+import type { EngineEvent, PresetRow, SessionConfig, SessionDto, StartDto } from "./types";
 
 const EVENT_CHANNEL = "krunch://event";
 
 export const api = {
   coreVersion: () => invoke<string>("core_version"),
 
-  startDeliberation: (idempotencyKey: string, config: SessionConfig) =>
-    invoke<StartDto>("start_deliberation", { idempotencyKey, config }),
+  startDeliberation: (idempotencyKey: string, config: SessionConfig, setupJson: string) =>
+    invoke<StartDto>("start_deliberation", { idempotencyKey, config, setupJson }),
 
   answerQuestions: (sessionId: string, answers: [string, string][]) =>
     invoke<boolean>("answer_questions", { sessionId, answers }),
@@ -31,6 +31,20 @@ export const api = {
 
   /** Write the dump to ~/Downloads natively and reveal it; returns the path. */
   saveSessionDump: (sessionId: string) => invoke<string>("save_session_dump", { sessionId }),
+
+  getSetting: (key: string) => invoke<string | null>("get_setting", { key }),
+
+  setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),
+
+  listPresets: () => invoke<PresetRow[]>("list_presets"),
+
+  savePreset: (name: string, configJson: string) =>
+    invoke<string>("save_preset", { name, configJson }),
+
+  deletePreset: (id: string) => invoke<void>("delete_preset", { id }),
+
+  getSessionSetup: (sessionId: string) =>
+    invoke<string | null>("get_session_setup", { sessionId }),
 };
 
 /** Whether we're running inside the Tauri shell (vs. a plain-browser preview). */

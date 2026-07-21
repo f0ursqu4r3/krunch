@@ -4,7 +4,7 @@ import { api, onEngineEvent } from "@/lib/api";
 import { estimateAcceptedCost, summarizeAcceptedUsage, type AcceptedUsage } from "@/lib/telemetry";
 import { resolveSystemPrompt } from "@/lib/personas";
 import type {
-  EngineEvent, InteractionMode, RulingKind, SeatConfig, SessionConfig, SessionState,
+  EngineEvent, InteractionMode, RulingKind, SeatConfig, SessionConfig, SessionState, SetupSnapshot,
 } from "@/lib/types";
 import { isTerminal, isLoopbackUrl, providerIsHttp } from "@/lib/types";
 
@@ -55,6 +55,26 @@ function newSeat(role: SeatConfig["role"], partial: Partial<SeatConfig> = {}): S
   };
 }
 
+function defaultSeats(): SeatConfig[] {
+  return [newSeat("mediator"), newSeat("panelist"), newSeat("panelist")];
+}
+
+/** Backfill any missing keys so an older/partial snapshot hydrates safely. */
+function normalizeSeat(s: Partial<SeatConfig>): SeatConfig {
+  return {
+    id: s.id ?? crypto.randomUUID(),
+    display_name: s.display_name ?? "Seat",
+    provider: s.provider ?? "anthropic",
+    base_url: s.base_url ?? "https://api.anthropic.com",
+    model: s.model ?? "claude-sonnet-5",
+    system_prompt: s.system_prompt ?? "",
+    sampling: s.sampling ?? { temperature: 0.7 },
+    personas: s.personas ?? [],
+    credential_ref: s.credential_ref ?? "anthropic-default",
+    role: s.role === "mediator" ? "mediator" : "panelist",
+  };
+}
+
 function blankLive(id: string): SeatLive {
   // Every optional key is listed explicitly: seat resets use Object.assign, which
   // only overwrites keys present in the source — omitting one would leak stale
@@ -79,7 +99,7 @@ export const useDeliberation = defineStore("deliberation", () => {
   const maxRounds = ref(8);
   const quorumFraction = ref(2 / 3);
   const confidenceFloor = ref(0.6);
-  const seats = ref<SeatConfig[]>([newSeat("mediator"), newSeat("panelist"), newSeat("panelist")]);
+  const seats = ref<SeatConfig[]>(defaultSeats());
 
   const phase = ref<Phase>("setup");
   const sessionId = ref<string | null>(null);
@@ -150,6 +170,26 @@ export const useDeliberation = defineStore("deliberation", () => {
     }));
     return { problem: problem.value, mode: mode.value, max_rounds: maxRounds.value, guard: { quorum_fraction: quorumFraction.value, confidence_floor: confidenceFloor.value }, seats: seatsResolved };
   }
+  function snapshotSetup(includeProblem: boolean): SetupSnapshot {
+    return {
+      problem: includeProblem ? problem.value : "",
+      mode: mode.value,
+      maxRounds: maxRounds.value,
+      quorumFraction: quorumFraction.value,
+      confidenceFloor: confidenceFloor.value,
+      seats: JSON.parse(JSON.stringify(seats.value)) as SeatConfig[],
+    };
+  }
+  function hydrateSetup(snap: SetupSnapshot, opts: { problem: boolean }) {
+    if (opts.problem && typeof snap.problem === "string") problem.value = snap.problem;
+    if (snap.mode) mode.value = snap.mode;
+    if (typeof snap.maxRounds === "number") maxRounds.value = snap.maxRounds;
+    if (typeof snap.quorumFraction === "number") quorumFraction.value = snap.quorumFraction;
+    if (typeof snap.confidenceFloor === "number") confidenceFloor.value = snap.confidenceFloor;
+    if (Array.isArray(snap.seats) && snap.seats.length) {
+      seats.value = snap.seats.map(normalizeSeat);
+    }
+  }
   function addPanelist() { if (panelists.value.length < 6) seats.value.push(newSeat("panelist")); }
   function loadDemoPanel() {
     const demo = (role: SeatConfig["role"], display_name: string, personas: string[]) => newSeat(role, { display_name, provider: "demo", base_url: "", model: "demo", credential_ref: "", personas });
@@ -173,7 +213,11 @@ export const useDeliberation = defineStore("deliberation", () => {
     startError.value = null;
     if (validation.value.length) { startError.value = validation.value.join(" "); return; }
     resetRuntime();
-    try { const result = await api.startDeliberation(crypto.randomUUID(), buildConfig()); sessionId.value = result.session_id; running.value = true; phase.value = "room"; appendLog("state_changed", "session convened"); }
+    try {
+      const setupJson = JSON.stringify(snapshotSetup(true));
+      const result = await api.startDeliberation(crypto.randomUUID(), buildConfig(), setupJson);
+      sessionId.value = result.session_id; running.value = true; phase.value = "room"; appendLog("state_changed", "session convened");
+    }
     catch (error) { startError.value = String(error); }
   }
   async function submitAnswers(answers: [string, string][]) { if (!sessionId.value) return; awaiting.value = null; await api.answerQuestions(sessionId.value, answers); }
@@ -277,7 +321,7 @@ export const useDeliberation = defineStore("deliberation", () => {
   }
   function setReducedEffects(value: boolean) { instantTokens.value = value; }
   return {
-    problem, mode, maxRounds, quorumFraction, confidenceFloor, seats, panelists, mediator, validation, addPanelist, removeSeat, loadDemoPanel,
+    problem, mode, maxRounds, quorumFraction, confidenceFloor, seats, panelists, mediator, validation, addPanelist, removeSeat, loadDemoPanel, snapshotSetup, hydrateSetup,
     phase, sessionId, running, currentRound, live, mediatorId, mediatorText, rounds, awaiting, verdict, failure, finalState, startError,
     acceptedUsage, usageSummary, estimatedCost, approximateOutputRate, logLines, convergence, instantTokens,
     init, start, submitAnswers, abandon, newSession, backToSetup, exportMarkdown, saveDump, handle, setReducedEffects,
