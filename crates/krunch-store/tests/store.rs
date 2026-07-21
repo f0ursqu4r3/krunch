@@ -209,3 +209,19 @@ async fn migrate_opens_and_is_idempotent() {
     let _first = Store::open(&path).unwrap();  // creates + migrates (fresh DB → v2)
     let _second = Store::open(&path).unwrap(); // re-open runs migrate() again, no error
 }
+
+#[tokio::test]
+async fn settings_roundtrip_and_upsert() {
+    let (_d, store) = temp_store();
+    assert_eq!(store.get_setting("effects".into()).await.unwrap(), None);
+
+    store.set_setting("effects".into(), "\"max\"".into()).await.unwrap();
+    assert_eq!(store.get_setting("effects".into()).await.unwrap().as_deref(), Some("\"max\""));
+
+    // Upsert overwrites in place.
+    store.set_setting("effects".into(), "\"off\"".into()).await.unwrap();
+    assert_eq!(store.get_setting("effects".into()).await.unwrap().as_deref(), Some("\"off\""));
+
+    store.delete_setting("effects".into()).await.unwrap();
+    assert_eq!(store.get_setting("effects".into()).await.unwrap(), None);
+}

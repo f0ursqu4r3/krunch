@@ -477,6 +477,42 @@ impl Store {
         .await
     }
 
+    /// Read a raw setting value (opaque JSON string) by key.
+    pub async fn get_setting(&self, key: String) -> StoreResult<Option<String>> {
+        self.run(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT value FROM app_settings WHERE key = ?1",
+                    params![key],
+                    |r| r.get(0),
+                )
+                .optional()?)
+        })
+        .await
+    }
+
+    /// Upsert a setting value.
+    pub async fn set_setting(&self, key: String, value: String) -> StoreResult<()> {
+        self.run(move |conn| {
+            conn.execute(
+                "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![key, value],
+            )?;
+            Ok(())
+        })
+        .await
+    }
+
+    /// Delete a setting.
+    pub async fn delete_setting(&self, key: String) -> StoreResult<()> {
+        self.run(move |conn| {
+            conn.execute("DELETE FROM app_settings WHERE key = ?1", params![key])?;
+            Ok(())
+        })
+        .await
+    }
+
     // --- reads ---
 
     /// Fetch a session summary.
