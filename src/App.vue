@@ -9,6 +9,7 @@ import RoomScreen from "@/screens/RoomScreen.vue";
 import VerdictScreen from "@/screens/VerdictScreen.vue";
 import CockpitStatusBar from "@/components/CockpitStatusBar.vue";
 import CommandPalette from "@/components/CommandPalette.vue";
+import HistoryDialog from "@/components/HistoryDialog.vue";
 
 const store = useDeliberation();
 const settings = useSettings();
@@ -60,6 +61,7 @@ onBeforeUnmount(() => { document.removeEventListener("keydown", keydown); cancel
     <CockpitStatusBar :effects="effects" @update:effects="effects = $event" @palette="openPalette" />
     <div class="relative z-10 flex min-h-0 flex-1 flex-col"><SetupScreen v-if="store.phase === 'setup'" class="boot" @history="history = true" /><RoomScreen v-else class="boot" /><VerdictScreen v-if="store.phase === 'verdict'" /></div>
     <CommandPalette :open="palette" :phase="store.phase" @update:open="$event ? openPalette() : closePalette()" @action="act" />
+    <HistoryDialog v-model:open="history" />
     <Transition name="fade">
       <button v-if="booting" class="no-press absolute inset-0 z-50 grid place-items-center bg-bg" @click="booting = false">
         <div class="boot text-center">
