@@ -574,6 +574,33 @@ impl Store {
         .await
     }
 
+    /// Persist the per-session pre-resolution editing snapshot (opaque JSON).
+    pub async fn set_session_setup(&self, session: SessionId, setup_json: String) -> StoreResult<()> {
+        self.run(move |conn| {
+            conn.execute(
+                "INSERT INTO session_setup (session_id, setup_json) VALUES (?1, ?2)
+                 ON CONFLICT(session_id) DO UPDATE SET setup_json = excluded.setup_json",
+                params![session.to_string(), setup_json],
+            )?;
+            Ok(())
+        })
+        .await
+    }
+
+    /// Read the editing snapshot for a session, if captured.
+    pub async fn get_session_setup(&self, session: SessionId) -> StoreResult<Option<String>> {
+        self.run(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT setup_json FROM session_setup WHERE session_id = ?1",
+                    params![session.to_string()],
+                    |r| r.get(0),
+                )
+                .optional()?)
+        })
+        .await
+    }
+
     // --- reads ---
 
     /// Fetch a session summary.

@@ -242,3 +242,16 @@ async fn preset_upsert_is_keyed_by_name() {
     store.delete_preset(id1).await.unwrap();
     assert!(store.list_presets().await.unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn session_setup_blob_roundtrips() {
+    let (_d, store) = temp_store();
+    let s = store.create_session("k".into(), config()).await.unwrap().session_id;
+    assert_eq!(store.get_session_setup(s).await.unwrap(), None);
+
+    store.set_session_setup(s, "{\"problem\":\"x\"}".into()).await.unwrap();
+    assert_eq!(
+        store.get_session_setup(s).await.unwrap().as_deref(),
+        Some("{\"problem\":\"x\"}")
+    );
+}
