@@ -62,13 +62,13 @@ useIntersectionObserver(heroCard, ([entry]) => { heroVisible.value = entry.isInt
         </div>
         <div class="flex gap-2">
           <Button size="sm" variant="outline" @click="emit('history')"><History data-icon="inline-start" />History <kbd class="ml-1 text-fg-faint">H</kbd></Button>
-          <Button size="sm" variant="outline" class="border-brass/50 text-brass" @click="store.loadDemoPanel()"><Sparkles data-icon="inline-start" />Load demo panel</Button>
+          <Button size="sm" variant="outline" class="border-signal/50 text-signal" @click="store.loadDemoPanel()"><Sparkles data-icon="inline-start" />Load demo panel</Button>
         </div>
       </header>
 
       <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <section class="terminal-panel p-5">
-          <p class="mb-2.5 font-mono text-[11px] uppercase tracking-[0.14em] text-brass">The matter</p>
+          <p class="mb-2.5 font-mono text-[11px] uppercase tracking-[0.14em] text-signal">The matter</p>
           <Textarea v-model="store.problem" rows="6" placeholder="State the matter to deliberate…" class="resize-none bg-bg-deep text-sm leading-relaxed" />
         </section>
         <div ref="heroCard" class="space-y-5"><ConvenePanel variant="card" /><PresetControls /></div>
@@ -91,7 +91,7 @@ useIntersectionObserver(heroCard, ([entry]) => { heroVisible.value = entry.isInt
       <section class="grid gap-4 lg:grid-cols-[21rem_minmax(0,1fr)]">
         <div>
           <header class="mb-3 flex items-center justify-between">
-            <p class="font-mono text-[11px] uppercase tracking-[0.14em] text-brass">The panel // {{ store.panelists.length }}/6 seated</p>
+            <p class="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">The panel // {{ store.panelists.length }}/6 seated</p>
             <Button size="xs" variant="outline" :disabled="store.panelists.length >= 6" class="border-consensus/45 text-consensus" @click="store.addPanelist()"><Plus data-icon="inline-start" />Add seat <kbd class="ml-1 text-fg-faint">A</kbd></Button>
           </header>
           <SeatRoster :seats="orderedSeats" :selected-id="selectedSeatId" :can-add="store.panelists.length < 6" @select="selectSeat" @add="store.addPanelist()" />

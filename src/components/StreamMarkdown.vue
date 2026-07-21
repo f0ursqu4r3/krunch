@@ -16,6 +16,6 @@ const html = computed(() => renderMarkdown(props.text));
 <template>
   <div class="markdown-body break-words">
     <div v-html="html" />
-    <span v-if="streaming" class="cursor" :class="[cursorClass ?? 'text-brass', { typing }]">▋</span>
+    <span v-if="streaming" class="cursor" :class="[cursorClass ?? 'text-signal', { typing }]">▋</span>
   </div>
 </template>

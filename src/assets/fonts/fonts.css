@@ -58,3 +58,38 @@
   font-display: swap;
   src: url('./fragment-mono-400.woff2') format('woff2');
 }
+
+/* ── Cyberpunk "Signal" rebrand faces ─────────────────────────────────────
+   Departure Mono (pixel): large headings, wordmark, verdict title.
+   Monaspace Neon (neo-grotesque): UI / chrome / buttons.
+   Monaspace Argon (humanist): streamed deliberation prose (legible long-form).
+   Monaspace Krypton (mechanical): telemetry — seat ids, %, counters, models. */
+
+@font-face {
+  font-family: 'Departure Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./departure-mono-regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Monaspace Neon';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('./Monaspace Neon/Monaspace Neon Var.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Monaspace Argon';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('./Monaspace Argon/Monaspace Argon Var.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Monaspace Krypton';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url('./Monaspace Krypton/Monaspace Krypton Var.woff2') format('woff2');
+}

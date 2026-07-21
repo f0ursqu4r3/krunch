@@ -4,33 +4,33 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* ── Warm chamber ──────────────────────────────────────────────────────
-     A dim, candle-lit room. Neutrals are warm brown-charcoal (hue ~55-60),
-     never cool/blue. Ink is warm parchment, not phosphor green. */
-  --bg: oklch(0.150 0.014 58);
-  --bg-deep: oklch(0.115 0.014 56);
-  --surface: oklch(0.196 0.016 58);
-  --surface-2: oklch(0.236 0.018 56);
-  --surface-3: oklch(0.290 0.020 54);
-  --fg: oklch(0.925 0.020 78);
-  --fg-muted: oklch(0.752 0.028 74);
-  --fg-faint: oklch(0.572 0.030 70);
-  --line: oklch(0.340 0.018 62);
-  --line-strong: oklch(0.500 0.034 66);
+  /* ── Ops terminal ─────────────────────────────────────────────────────
+     A signal room at night. Pure-black void; surfaces lifted just enough to
+     read. Neutrals carry a faint green cast (hue ~165). Ink is phosphor. */
+  --bg: oklch(0.150 0.012 165);
+  --bg-deep: oklch(0 0 0);
+  --surface: oklch(0.190 0.014 165);
+  --surface-2: oklch(0.235 0.016 165);
+  --surface-3: oklch(0.285 0.018 165);
+  --fg: oklch(0.940 0.020 165);
+  --fg-muted: oklch(0.750 0.030 165);
+  --fg-faint: oklch(0.570 0.030 165);
+  --line: oklch(0.320 0.020 165);
+  --line-strong: oklch(0.480 0.040 165);
 
-  /* Aged brass — the single accent. Candlelight, brass fittings, the gavel. */
-  --brass: oklch(0.770 0.115 74);
-  --brass-bright: oklch(0.862 0.130 82);
-  --brass-deep: oklch(0.600 0.100 68);
+  /* Neon green — the single primary. Signal, lock, the live trace. */
+  --signal: oklch(0.850 0.210 160);
+  --signal-bright: oklch(0.900 0.230 160);
+  --signal-deep: oklch(0.620 0.160 160);
 
-  /* Deliberation states as a heat scale: the room lit gold at consensus,
-     warm amber while it continues, cooling to ember red at deadlock. */
-  --consensus: oklch(0.840 0.135 85);
-  --continue: var(--brass);
-  --deadlock: oklch(0.605 0.160 33);
-  --danger: oklch(0.605 0.160 33);
+  /* Deliberation states: green as the panel locks in, dim while it runs,
+     neon red at deadlock / alert. */
+  --consensus: oklch(0.880 0.240 158);
+  --continue: var(--signal);
+  --deadlock: oklch(0.620 0.250 22);
+  --danger: oklch(0.620 0.250 22);
 
-  --radius: 0.5rem;
+  --radius: 0.375rem;
   --effects-intensity: 0.55;
 
   /* shadcn / reka-ui bindings */
@@ -40,8 +40,8 @@
   --card-foreground: var(--fg);
   --popover: var(--surface-2);
   --popover-foreground: var(--fg);
-  --primary: var(--brass);
-  --primary-foreground: oklch(0.165 0.020 60);
+  --primary: var(--signal);
+  --primary-foreground: oklch(0.140 0.020 165);
   --secondary: var(--surface-2);
   --secondary-foreground: var(--fg);
   --muted: var(--surface-2);
@@ -49,21 +49,23 @@
   --accent: var(--surface-3);
   --accent-foreground: var(--fg);
   --destructive: var(--deadlock);
-  --destructive-foreground: oklch(0.960 0.010 60);
+  --destructive-foreground: oklch(0.980 0.010 160);
   --border: var(--line);
   --input: var(--surface-2);
-  --ring: var(--brass);
+  --ring: var(--signal);
 }
 
 @theme inline {
   --color-bg: var(--bg); --color-bg-deep: var(--bg-deep); --color-surface: var(--surface); --color-surface-2: var(--surface-2); --color-surface-3: var(--surface-3);
   --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-card-foreground: var(--card-foreground); --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground); --color-destructive: var(--destructive); --color-destructive-foreground: var(--destructive-foreground); --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring);
-  --color-brass: var(--brass); --color-brass-bright: var(--brass-bright); --color-brass-deep: var(--brass-deep);
+  --color-signal: var(--signal); --color-signal-bright: var(--signal-bright); --color-signal-deep: var(--signal-deep);
   --color-consensus: var(--consensus); --color-continue: var(--continue); --color-deadlock: var(--deadlock); --color-danger: var(--danger); --color-fg-muted: var(--fg-muted); --color-fg-faint: var(--fg-faint); --color-line: var(--line); --color-line-strong: var(--line-strong);
-  --font-display: "Young Serif", Georgia, "Times New Roman", serif;
-  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: "Monaspace Xenon", "Fragment Mono", ui-monospace, "SF Mono", monospace;
+  --font-display: "Departure Mono", ui-monospace, monospace;
+  --font-sans: "Monaspace Neon", ui-monospace, "SF Mono", monospace;
+  --font-mono: "Monaspace Krypton", "Monaspace Xenon", ui-monospace, "SF Mono", monospace;
+  --font-prose: "Monaspace Argon", ui-sans-serif, system-ui, sans-serif;
+  --font-record: "Monaspace Xenon", ui-serif, Georgia, serif;
   --radius-lg: var(--radius); --radius-md: calc(var(--radius) - 2px); --radius-sm: calc(var(--radius) - 4px); --radius-xl: calc(var(--radius) + 4px);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -71,35 +73,65 @@
 * { border-color: var(--line); }
 html, body, #app { height: 100%; }
 body { margin: 0; overflow: hidden; color: var(--fg); background: var(--bg); font-family: var(--font-sans); font-size: 14px; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-.font-display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.005em; }
+.font-display { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em; text-transform: uppercase; }
 
-/* Panels are pieces of furniture in the room: a warm surface, a candle-lit top
-   edge, and a soft shadow so they sit on the table rather than float on glass. */
+/* HUD panel: sharp graphite surface, hairline border, a phosphor top edge, and
+   clipped/notched top-right corner. Corner bracket drawn with the ::before. */
 .terminal-panel {
-  background: linear-gradient(180deg, color-mix(in oklch, var(--surface) 90%, var(--brass)) 0%, var(--surface) 44%);
+  position: relative;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--fg) 7%, transparent), 0 10px 26px -18px oklch(0 0 0 / 0.75);
-  transition: border-color 260ms ease, box-shadow 260ms ease;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklch, var(--signal) calc(6% * var(--effects-intensity)), transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--signal) 10%, transparent),
+    0 0 calc(28px * var(--effects-intensity)) -14px color-mix(in oklch, var(--signal) 60%, transparent);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  transition: border-color 240ms ease, box-shadow 240ms ease;
+}
+.terminal-panel::before {
+  content: ""; position: absolute; top: 6px; left: 6px; width: 10px; height: 10px;
+  border-top: 1px solid var(--signal); border-left: 1px solid var(--signal);
+  opacity: calc(0.5 * var(--effects-intensity)); pointer-events: none;
 }
 
-/* ── The signature moment: the room warms and brightens as the panel converges.
-   Driven by App.vue from mean confidence + cluster fraction; hue rides a heat
-   scale (amber → gold at consensus, → ember red at deadlock). @property makes
-   the hue/intensity smoothly transitionable frame-to-frame. */
-@property --glow-hue { syntax: "<number>"; inherits: true; initial-value: 74; }
-@property --glow-intensity { syntax: "<number>"; inherits: true; initial-value: 0.10; }
-.chamber-glow {
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  transition: --glow-hue 900ms ease, --glow-intensity 900ms ease;
-  background: radial-gradient(150% 95% at 50% 112%, oklch(0.70 0.145 var(--glow-hue) / calc(0.55 * var(--glow-intensity) * var(--effects-intensity))) 0%, transparent 58%);
+/* Moving dot/line grid behind everything — depth + "the system is running".
+   Transform-only animation (GPU-cheap). Fades out with --effects-intensity. */
+.hud-grid {
+  position: fixed; inset: -40px; z-index: 0; pointer-events: none;
+  opacity: calc(0.5 * var(--effects-intensity));
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--signal) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--signal) 8%, transparent) 1px, transparent 1px);
+  background-size: 44px 44px;
+  animation: grid-drift 18s linear infinite;
+  mask-image: radial-gradient(120% 120% at 50% 40%, #000 30%, transparent 90%);
 }
-/* A soft warm vignette — the darkness at the edges of a candle-lit room. */
-.chamber::after { content: ""; position: fixed; inset: 0; z-index: 40; pointer-events: none; box-shadow: inset 0 0 20vw 2vw oklch(0.05 0.012 48 / calc(0.5 * var(--effects-intensity))); }
-/* A whisper of grain so the darks read as room, not a flat panel. */
-body::after { content: ""; position: fixed; inset: 0; z-index: 41; pointer-events: none; opacity: calc(0.018 * var(--effects-intensity)); mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.hud-grid::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 40%, color-mix(in oklch, var(--signal) 22%, transparent) 50%, transparent 60%);
+  background-size: 300% 300%;
+  animation: dataflow 9s ease-in-out infinite;
+  opacity: calc(0.4 * var(--effects-intensity));
+}
+@keyframes grid-drift { to { transform: translate(44px, 44px); } }
+@keyframes dataflow { 0%,100% { background-position: 0% 0%; } 50% { background-position: 100% 100%; } }
 
-::-webkit-scrollbar { width: 9px; height: 9px; } ::-webkit-scrollbar-track { background: var(--bg-deep); } ::-webkit-scrollbar-thumb { background: color-mix(in oklch, var(--brass) 30%, var(--surface-3)); border-radius: 5px; } ::-webkit-scrollbar-thumb:hover { background: color-mix(in oklch, var(--brass) 50%, var(--surface-3)); } ::selection { background: color-mix(in oklch, var(--brass) 32%, transparent); color: var(--fg); }
+/* Phosphor glow helpers — apply where a neon element should bloom. */
+.glow-text { text-shadow: 0 0 calc(8px * var(--effects-intensity)) color-mix(in oklch, currentColor 70%, transparent); }
+.glow-edge { box-shadow: 0 0 calc(16px * var(--effects-intensity)) -6px color-mix(in oklch, var(--signal) 80%, transparent); }
+
+/* Glitch: brief RGB-split shudder on state changes / errors. */
+@keyframes glitch {
+  0%,100% { transform: none; clip-path: none; }
+  20% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); text-shadow: 1.5px 0 var(--deadlock), -1.5px 0 var(--signal); }
+  60% { transform: translateX(-1px); text-shadow: -1.5px 0 var(--deadlock), 1.5px 0 var(--signal); }
+  80% { transform: translateX(1px); }
+}
+.glitch { animation: glitch 320ms steps(3, end); }
+
+::-webkit-scrollbar { width: 9px; height: 9px; } ::-webkit-scrollbar-track { background: var(--bg-deep); } ::-webkit-scrollbar-thumb { background: color-mix(in oklch, var(--signal) 30%, var(--surface-3)); border-radius: 5px; } ::-webkit-scrollbar-thumb:hover { background: color-mix(in oklch, var(--signal) 50%, var(--surface-3)); } ::selection { background: color-mix(in oklch, var(--signal) 32%, transparent); color: var(--fg); }
 
 /* Press feedback: pressable surfaces confirm the click. The boot overlay opts
    out — scaling a full-viewport surface reads as a glitch. */
@@ -129,29 +161,29 @@ button:not(.no-press):active { transform: scale(0.97); }
 .fade-leave-active { transition: opacity 150ms ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-/* ── Streamed deliberation, set as warm readable prose (Hanken), not a readout.
-   Only code stays in the Xenon record face. Inherits the container's size. */
-.markdown-body { display: inline; }
+/* ── Streamed deliberation, set as humanist mono prose (Argon) with green accents.
+   Xenon slab for code. Inherits the container's size. */
+.markdown-body { display: inline; font-family: var(--font-prose); }
 .markdown-body > div { display: inline; }
 .markdown-body :where(p, ul, ol, pre, blockquote, table, h1, h2, h3, h4, h5, h6) { display: block; margin: 0 0 0.72em; }
 .markdown-body :where(p, ul, ol, pre, blockquote, table, h1, h2, h3, h4, h5, h6):last-child { margin-bottom: 0; }
-.markdown-body :where(h1, h2, h3, h4, h5, h6) { font-family: var(--font-display); color: var(--brass-bright); font-weight: 400; letter-spacing: -0.005em; line-height: 1.25; }
-.markdown-body h1 { font-size: 1.35em; } .markdown-body h2 { font-size: 1.2em; } .markdown-body h3 { font-size: 1.08em; }
-.markdown-body :where(strong, b) { color: var(--brass-bright); font-weight: 600; }
+.markdown-body :where(h1, h2, h3, h4, h5, h6) { font-family: var(--font-mono); color: var(--signal-bright); font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; line-height: 1.3; }
+.markdown-body h1 { font-size: 1.2em; } .markdown-body h2 { font-size: 1.1em; } .markdown-body h3 { font-size: 1em; }
+.markdown-body :where(strong, b) { color: var(--signal-bright); font-weight: 600; }
 .markdown-body :where(em, i) { color: var(--fg-muted); font-style: italic; }
-.markdown-body a { color: var(--brass); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: color-mix(in oklch, var(--brass) 55%, transparent); }
+.markdown-body a { color: var(--signal); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: color-mix(in oklch, var(--signal) 55%, transparent); }
 .markdown-body :where(ul, ol) { padding-left: 1.4em; }
 .markdown-body ul { list-style: none; }
-.markdown-body ul > li::before { content: "\203A"; color: var(--brass); margin-left: -1em; margin-right: 0.5em; }
+.markdown-body ul > li::before { content: "\203A"; color: var(--signal); margin-left: -1em; margin-right: 0.5em; }
 .markdown-body ol { list-style: decimal; }
 .markdown-body li { margin: 0.18em 0; }
-.markdown-body :where(code) { font-family: var(--font-mono); font-size: 0.92em; background: color-mix(in oklch, var(--brass) 12%, transparent); border-radius: 4px; padding: 0.05em 0.32em; }
-.markdown-body pre { background: var(--bg-deep); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 0.72em 0.9em; overflow-x: auto; }
+.markdown-body :where(code) { font-family: var(--font-record); font-size: 0.92em; background: color-mix(in oklch, var(--signal) 12%, transparent); border-radius: 4px; padding: 0.05em 0.32em; }
+.markdown-body pre { background: var(--bg-deep); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.72em 0.9em; overflow-x: auto; }
 .markdown-body pre code { background: none; padding: 0; }
-.markdown-body blockquote { border-left: 2px solid var(--brass); padding-left: 0.85em; color: var(--fg-muted); font-style: italic; }
+.markdown-body blockquote { border-left: 2px solid var(--signal); padding-left: 0.85em; color: var(--fg-muted); font-style: italic; }
 .markdown-body hr { border: none; border-top: 1px dashed var(--line-strong); margin: 0.85em 0; }
 .markdown-body :where(th, td) { border: 1px solid var(--line); padding: 0.28em 0.6em; text-align: left; }
-.markdown-body th { color: var(--brass); font-weight: 600; }
+.markdown-body th { color: var(--signal); font-weight: 600; }
 
 @media (max-width: 1040px) { .log-rail { display: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; } }
