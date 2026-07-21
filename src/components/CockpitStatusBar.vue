@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { Cpu, Gauge, Gavel } from "@lucide/vue";
 import { useDeliberation } from "@/stores/deliberation";
-import ConvergenceStrip from "@/components/ConvergenceStrip.vue";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const props = defineProps<{ effects: "off" | "ambient" | "max" }>();
@@ -26,7 +25,6 @@ const round = computed(() => Math.min(store.maxRounds, Math.max(0, store.current
     <div class="flex items-center gap-2 text-signal"><Gavel class="size-4" /><span class="font-display text-lg tracking-tight">Krunch</span></div>
     <div class="hidden border-l border-line pl-4 font-mono text-[10px] text-fg-muted xl:block">{{ store.sessionId?.slice(0, 8) ?? "not in session" }} · {{ clock }}</div>
     <div class="font-mono text-[10px] text-fg-muted">{{ store.finalState === 'finalizing' ? 'sealing the record…' : `round ${round}/${store.maxRounds}` }}</div>
-    <ConvergenceStrip class="hidden lg:block" />
     <div class="ml-auto flex items-center gap-3 font-mono text-[10px]">
       <span class="hidden text-fg-muted md:inline"><Cpu class="mr-1 inline size-3 text-consensus" />{{ store.usageSummary.total.toLocaleString() }} tok <b :class="store.usageSummary.exact ? 'text-consensus' : 'text-signal'">{{ store.usageSummary.exact ? 'exact' : 'partial' }}</b></span>
       <span class="hidden text-fg-faint lg:inline"><Gauge class="mr-1 inline size-3" />{{ store.approximateOutputRate ? `~${store.approximateOutputRate.toFixed(1)} tok/s` : '~— tok/s' }}</span>

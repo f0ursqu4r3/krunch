@@ -12,7 +12,7 @@ const tone = computed(() => telemetry.value?.effectiveRuling === "CONSENSUS" ? "
 </script>
 
 <template>
-  <section class="min-w-[12rem]" aria-label="Convergence telemetry">
+  <section class="w-full" aria-label="Convergence telemetry">
     <div class="mb-1 flex items-center justify-between gap-2 font-mono text-[9px] uppercase tracking-[0.12em] text-fg-faint">
       <span>convergence</span><span :class="tone">{{ telemetry?.effectiveRuling ?? "PENDING" }}</span>
     </div>
