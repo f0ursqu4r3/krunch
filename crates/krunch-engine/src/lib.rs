@@ -792,7 +792,11 @@ impl Engine {
                         }
                         continue;
                     }
-                    return Ok(AttemptResult::Abstained(e.kind_label()));
+                    // Carry the full error (kind + detail) as the reason so the
+                    // seat card and the mediator-error verdict show *why* it
+                    // failed, not just the `permanent/other` label. The stable
+                    // label is still recorded separately in `kind` above.
+                    return Ok(AttemptResult::Abstained(e.to_string()));
                 }
             }
         }

@@ -65,6 +65,15 @@ pub struct SessionSummary {
     pub updated_at: i64,
 }
 
+/// A saved panel preset (read model + wire type).
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PresetRow {
+    pub id: String,
+    pub name: String,
+    pub config_json: String,
+    pub updated_at: i64,
+}
+
 /// The kind of round (PLAN §6 — finalization reuses the round/attempt spine).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RoundKind {
@@ -473,6 +482,121 @@ impl Store {
             tx.execute("UPDATE rounds SET status = 'abandoned' WHERE status = 'running'", [])?;
             tx.commit()?;
             Ok(n)
+        })
+        .await
+    }
+
+    /// Read a raw setting value (opaque JSON string) by key.
+    pub async fn get_setting(&self, key: String) -> StoreResult<Option<String>> {
+        self.run(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT value FROM app_settings WHERE key = ?1",
+                    params![key],
+                    |r| r.get(0),
+                )
+                .optional()?)
+        })
+        .await
+    }
+
+    /// Upsert a setting value.
+    pub async fn set_setting(&self, key: String, value: String) -> StoreResult<()> {
+        self.run(move |conn| {
+            conn.execute(
+                "INSERT INTO app_settings (key, value) VALUES (?1, ?2)
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                params![key, value],
+            )?;
+            Ok(())
+        })
+        .await
+    }
+
+    /// Delete a setting.
+    pub async fn delete_setting(&self, key: String) -> StoreResult<()> {
+        self.run(move |conn| {
+            conn.execute("DELETE FROM app_settings WHERE key = ?1", params![key])?;
+            Ok(())
+        })
+        .await
+    }
+
+    /// Save (upsert on `name`) a panel preset; returns the row id.
+    pub async fn save_preset(&self, name: String, config_json: String) -> StoreResult<String> {
+        self.run(move |conn| {
+            let now = now_millis();
+            let new_id = uuid::Uuid::new_v4().to_string();
+            conn.execute(
+                "INSERT INTO panel_presets (id, name, config_json, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?4)
+                 ON CONFLICT(name) DO UPDATE SET
+                     config_json = excluded.config_json,
+                     updated_at  = excluded.updated_at",
+                params![new_id, name, config_json, now],
+            )?;
+            let id: String = conn.query_row(
+                "SELECT id FROM panel_presets WHERE name = ?1",
+                params![name],
+                |r| r.get(0),
+            )?;
+            Ok(id)
+        })
+        .await
+    }
+
+    /// List presets, most-recently-updated first.
+    pub async fn list_presets(&self) -> StoreResult<Vec<PresetRow>> {
+        self.run(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, name, config_json, updated_at
+                 FROM panel_presets ORDER BY updated_at DESC",
+            )?;
+            let rows = stmt.query_map([], |r| {
+                Ok(PresetRow {
+                    id: r.get(0)?,
+                    name: r.get(1)?,
+                    config_json: r.get(2)?,
+                    updated_at: r.get(3)?,
+                })
+            })?;
+            Ok(rows.collect::<Result<Vec<_>, _>>()?)
+        })
+        .await
+    }
+
+    /// Delete a preset by id.
+    pub async fn delete_preset(&self, id: String) -> StoreResult<()> {
+        self.run(move |conn| {
+            conn.execute("DELETE FROM panel_presets WHERE id = ?1", params![id])?;
+            Ok(())
+        })
+        .await
+    }
+
+    /// Persist the per-session pre-resolution editing snapshot (opaque JSON).
+    pub async fn set_session_setup(&self, session: SessionId, setup_json: String) -> StoreResult<()> {
+        self.run(move |conn| {
+            conn.execute(
+                "INSERT INTO session_setup (session_id, setup_json) VALUES (?1, ?2)
+                 ON CONFLICT(session_id) DO UPDATE SET setup_json = excluded.setup_json",
+                params![session.to_string(), setup_json],
+            )?;
+            Ok(())
+        })
+        .await
+    }
+
+    /// Read the editing snapshot for a session, if captured.
+    pub async fn get_session_setup(&self, session: SessionId) -> StoreResult<Option<String>> {
+        self.run(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT setup_json FROM session_setup WHERE session_id = ?1",
+                    params![session.to_string()],
+                    |r| r.get(0),
+                )
+                .optional()?)
         })
         .await
     }

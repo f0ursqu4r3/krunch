@@ -196,3 +196,62 @@ async fn unknown_session_state_update_is_not_found() {
     let err = store.set_state(SessionId::new(), SessionState::Running).await.unwrap_err();
     assert!(matches!(err, StoreError::NotFound(_)));
 }
+
+#[test]
+fn schema_version_is_two() {
+    assert_eq!(krunch_store::schema::SCHEMA_VERSION, 2);
+}
+
+#[tokio::test]
+async fn migrate_opens_and_is_idempotent() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("krunch.sqlite");
+    let _first = Store::open(&path).unwrap();  // creates + migrates (fresh DB → v2)
+    let _second = Store::open(&path).unwrap(); // re-open runs migrate() again, no error
+}
+
+#[tokio::test]
+async fn settings_roundtrip_and_upsert() {
+    let (_d, store) = temp_store();
+    assert_eq!(store.get_setting("effects".into()).await.unwrap(), None);
+
+    store.set_setting("effects".into(), "\"max\"".into()).await.unwrap();
+    assert_eq!(store.get_setting("effects".into()).await.unwrap().as_deref(), Some("\"max\""));
+
+    // Upsert overwrites in place.
+    store.set_setting("effects".into(), "\"off\"".into()).await.unwrap();
+    assert_eq!(store.get_setting("effects".into()).await.unwrap().as_deref(), Some("\"off\""));
+
+    store.delete_setting("effects".into()).await.unwrap();
+    assert_eq!(store.get_setting("effects".into()).await.unwrap(), None);
+}
+
+#[tokio::test]
+async fn preset_upsert_is_keyed_by_name() {
+    let (_d, store) = temp_store();
+    let id1 = store.save_preset("Design jury".into(), "{\"seats\":[]}".into()).await.unwrap();
+    // Same name updates in place, keeps the id.
+    let id2 = store.save_preset("Design jury".into(), "{\"seats\":[1]}".into()).await.unwrap();
+    assert_eq!(id1, id2);
+
+    let all = store.list_presets().await.unwrap();
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].name, "Design jury");
+    assert_eq!(all[0].config_json, "{\"seats\":[1]}");
+
+    store.delete_preset(id1).await.unwrap();
+    assert!(store.list_presets().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn session_setup_blob_roundtrips() {
+    let (_d, store) = temp_store();
+    let s = store.create_session("k".into(), config()).await.unwrap().session_id;
+    assert_eq!(store.get_session_setup(s).await.unwrap(), None);
+
+    store.set_session_setup(s, "{\"problem\":\"x\"}".into()).await.unwrap();
+    assert_eq!(
+        store.get_session_setup(s).await.unwrap().as_deref(),
+        Some("{\"problem\":\"x\"}")
+    );
+}
