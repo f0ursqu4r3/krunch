@@ -71,6 +71,7 @@ pub async fn start_deliberation(
     state: State<'_, AppState>,
     idempotency_key: String,
     config: SessionConfig,
+    setup_json: String,
 ) -> Result<StartDto, String> {
     config
         .validate()
@@ -90,6 +91,10 @@ pub async fn start_deliberation(
     let session = created.session_id;
 
     if created.created {
+        store
+            .set_session_setup(session, setup_json)
+            .await
+            .map_err(|e| e.to_string())?;
         let cancel = CancellationToken::new();
         runs.lock().unwrap().insert(session, cancel.clone());
 
@@ -225,4 +230,15 @@ pub async fn save_preset(
 #[tauri::command]
 pub async fn delete_preset(state: State<'_, AppState>, id: String) -> Result<(), String> {
     state.store.clone().delete_preset(id).await.map_err(|e| e.to_string())
+}
+
+/// The pre-resolution editing snapshot for a session, if captured (used by
+/// clone-as-new). `None` for legacy sessions created before capture existed.
+#[tauri::command]
+pub async fn get_session_setup(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> Result<Option<String>, String> {
+    let session = parse_session(&session_id)?;
+    state.store.clone().get_session_setup(session).await.map_err(|e| e.to_string())
 }
