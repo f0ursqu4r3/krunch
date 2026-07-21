@@ -26,24 +26,14 @@ async function openSession(s: SessionDto) {
   loading.value = true;
   detail.value = "";
   setupRaw.value = null;
-  try {
-    const md = await api.exportSession(s.id);
-    if (selected.value?.id !== s.id) return; // a newer selection superseded this one
-    detail.value = md;
-  } catch (e) {
-    if (selected.value?.id !== s.id) return;
-    detail.value = `_Could not load this session: ${String(e)}_`;
-  } finally {
-    if (selected.value?.id === s.id) loading.value = false;
-  }
-  try {
-    const raw = isTauri() ? await api.getSessionSetup(s.id) : null;
-    if (selected.value?.id !== s.id) return; // a newer selection superseded this one
-    setupRaw.value = raw;
-  } catch {
-    if (selected.value?.id !== s.id) return;
-    setupRaw.value = null;
-  }
+  const [md, raw] = await Promise.allSettled([
+    api.exportSession(s.id),
+    isTauri() ? api.getSessionSetup(s.id) : Promise.resolve(null),
+  ]);
+  if (selected.value?.id !== s.id) return; // a newer selection superseded this one
+  detail.value = md.status === "fulfilled" ? md.value : `_Could not load this session: ${String(md.reason)}_`;
+  setupRaw.value = raw.status === "fulfilled" ? raw.value : null;
+  loading.value = false;
 }
 
 function cloneAsNew() {

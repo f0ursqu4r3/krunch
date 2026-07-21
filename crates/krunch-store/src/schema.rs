@@ -152,3 +152,23 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn migrate_upgrades_a_v1_db_to_v2() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate(&conn).unwrap(); // fresh → stamps SCHEMA_VERSION
+        // Simulate a pre-existing v1 database.
+        conn.execute("UPDATE schema_version SET version = 1", []).unwrap();
+        // Re-run migrate: the v1 < v2 branch must bump the stored version.
+        migrate(&conn).unwrap();
+        let v: i64 = conn
+            .query_row("SELECT version FROM schema_version LIMIT 1", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(v, SCHEMA_VERSION);
+        assert_eq!(SCHEMA_VERSION, 2);
+    }
+}
