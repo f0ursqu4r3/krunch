@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useIntersectionObserver } from "@vueuse/core";
-import { Plus, Sparkles } from "@lucide/vue";
+import { History, Plus, Sparkles } from "@lucide/vue";
 import { useDeliberation } from "@/stores/deliberation";
 import SeatRoster from "@/components/SeatRoster.vue";
 import SeatEditor from "@/components/SeatEditor.vue";
 import ConvenePanel from "@/components/ConvenePanel.vue";
+import PresetControls from "@/components/PresetControls.vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
+const emit = defineEmits<{ history: [] }>();
 const store = useDeliberation();
 const modeHint = computed(() => ({ autonomous: "no operator pauses", batched: "pause only for unresolved questions", interactive: "pause for each open question" }[store.mode]));
 // Display the quorum rounded to 2dp; keep the exact stored fraction (e.g. 2/3)
@@ -58,7 +60,10 @@ useIntersectionObserver(heroCard, ([entry]) => { heroVisible.value = entry.isInt
           <h1 class="font-display text-3xl text-foreground">Convene the panel</h1>
           <p class="mt-2 text-sm text-fg-muted">State the matter, seat the panel, then open deliberation.</p>
         </div>
-        <Button size="sm" variant="outline" class="border-brass/50 text-brass" @click="store.loadDemoPanel()"><Sparkles data-icon="inline-start" />Load demo panel</Button>
+        <div class="flex gap-2">
+          <Button size="sm" variant="outline" @click="emit('history')"><History data-icon="inline-start" />History <kbd class="ml-1 text-fg-faint">H</kbd></Button>
+          <Button size="sm" variant="outline" class="border-brass/50 text-brass" @click="store.loadDemoPanel()"><Sparkles data-icon="inline-start" />Load demo panel</Button>
+        </div>
       </header>
 
       <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -66,7 +71,7 @@ useIntersectionObserver(heroCard, ([entry]) => { heroVisible.value = entry.isInt
           <p class="mb-2.5 font-mono text-[11px] uppercase tracking-[0.14em] text-brass">The matter</p>
           <Textarea v-model="store.problem" rows="6" placeholder="State the matter to deliberate…" class="resize-none bg-bg-deep text-sm leading-relaxed" />
         </section>
-        <div ref="heroCard"><ConvenePanel variant="card" /></div>
+        <div ref="heroCard" class="space-y-5"><ConvenePanel variant="card" /><PresetControls /></div>
       </div>
 
       <section class="terminal-panel flex flex-wrap items-center gap-x-8 gap-y-4 p-4">

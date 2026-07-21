@@ -15,6 +15,7 @@ const input = ref<InstanceType<typeof Input>>();
 const entries = computed(() => [
   { id: "convene", label: "Convene panel", keys: "C", show: props.phase === "setup" },
   { id: "add-seat", label: "Add panelist", keys: "A", show: props.phase === "setup" },
+  { id: "history", label: "Browse history", keys: "H", show: props.phase === "setup" },
   { id: "abort", label: "Abort deliberation", keys: "", show: props.phase === "room" && store.running },
   { id: "new-session", label: "New session", keys: props.phase === "verdict" ? "N" : "", show: props.phase !== "setup" },
   { id: "export", label: "Export session dump", keys: "E", show: props.phase === "verdict" },
