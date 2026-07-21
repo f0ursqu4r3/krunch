@@ -20,9 +20,16 @@ async function openSession(s: SessionDto) {
   selected.value = s;
   loading.value = true;
   detail.value = "";
-  try { detail.value = await api.exportSession(s.id); }
-  catch (e) { detail.value = `_Could not load this session: ${String(e)}_`; }
-  finally { loading.value = false; }
+  try {
+    const md = await api.exportSession(s.id);
+    if (selected.value?.id !== s.id) return; // a newer selection superseded this one
+    detail.value = md;
+  } catch (e) {
+    if (selected.value?.id !== s.id) return;
+    detail.value = `_Could not load this session: ${String(e)}_`;
+  } finally {
+    if (selected.value?.id === s.id) loading.value = false;
+  }
 }
 
 // Refresh the list each time the dialog opens; reset the detail pane.
