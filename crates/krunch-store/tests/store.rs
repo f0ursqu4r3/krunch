@@ -225,3 +225,20 @@ async fn settings_roundtrip_and_upsert() {
     store.delete_setting("effects".into()).await.unwrap();
     assert_eq!(store.get_setting("effects".into()).await.unwrap(), None);
 }
+
+#[tokio::test]
+async fn preset_upsert_is_keyed_by_name() {
+    let (_d, store) = temp_store();
+    let id1 = store.save_preset("Design jury".into(), "{\"seats\":[]}".into()).await.unwrap();
+    // Same name updates in place, keeps the id.
+    let id2 = store.save_preset("Design jury".into(), "{\"seats\":[1]}".into()).await.unwrap();
+    assert_eq!(id1, id2);
+
+    let all = store.list_presets().await.unwrap();
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].name, "Design jury");
+    assert_eq!(all[0].config_json, "{\"seats\":[1]}");
+
+    store.delete_preset(id1).await.unwrap();
+    assert!(store.list_presets().await.unwrap().is_empty());
+}

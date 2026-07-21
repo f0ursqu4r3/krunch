@@ -65,6 +65,15 @@ pub struct SessionSummary {
     pub updated_at: i64,
 }
 
+/// A saved panel preset (read model + wire type).
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PresetRow {
+    pub id: String,
+    pub name: String,
+    pub config_json: String,
+    pub updated_at: i64,
+}
+
 /// The kind of round (PLAN §6 — finalization reuses the round/attempt spine).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RoundKind {
@@ -508,6 +517,58 @@ impl Store {
     pub async fn delete_setting(&self, key: String) -> StoreResult<()> {
         self.run(move |conn| {
             conn.execute("DELETE FROM app_settings WHERE key = ?1", params![key])?;
+            Ok(())
+        })
+        .await
+    }
+
+    /// Save (upsert on `name`) a panel preset; returns the row id.
+    pub async fn save_preset(&self, name: String, config_json: String) -> StoreResult<String> {
+        self.run(move |conn| {
+            let now = now_millis();
+            let new_id = uuid::Uuid::new_v4().to_string();
+            conn.execute(
+                "INSERT INTO panel_presets (id, name, config_json, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?4)
+                 ON CONFLICT(name) DO UPDATE SET
+                     config_json = excluded.config_json,
+                     updated_at  = excluded.updated_at",
+                params![new_id, name, config_json, now],
+            )?;
+            let id: String = conn.query_row(
+                "SELECT id FROM panel_presets WHERE name = ?1",
+                params![name],
+                |r| r.get(0),
+            )?;
+            Ok(id)
+        })
+        .await
+    }
+
+    /// List presets, most-recently-updated first.
+    pub async fn list_presets(&self) -> StoreResult<Vec<PresetRow>> {
+        self.run(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, name, config_json, updated_at
+                 FROM panel_presets ORDER BY updated_at DESC",
+            )?;
+            let rows = stmt.query_map([], |r| {
+                Ok(PresetRow {
+                    id: r.get(0)?,
+                    name: r.get(1)?,
+                    config_json: r.get(2)?,
+                    updated_at: r.get(3)?,
+                })
+            })?;
+            Ok(rows.collect::<Result<Vec<_>, _>>()?)
+        })
+        .await
+    }
+
+    /// Delete a preset by id.
+    pub async fn delete_preset(&self, id: String) -> StoreResult<()> {
+        self.run(move |conn| {
+            conn.execute("DELETE FROM panel_presets WHERE id = ?1", params![id])?;
             Ok(())
         })
         .await
