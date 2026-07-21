@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { api, isTauri } from "@/lib/api";
-import type { SessionDto } from "@/lib/types";
+import type { SessionDto, SetupSnapshot } from "@/lib/types";
+import { useDeliberation } from "@/stores/deliberation";
 import StreamMarkdown from "@/components/StreamMarkdown.vue";
 import { Dialog, DialogScrollContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 const open = defineModel<boolean>("open", { required: true });
+
+const store = useDeliberation();
 
 const sessions = ref<SessionDto[]>([]);
 const selected = ref<SessionDto | null>(null);
 const detail = ref<string>("");
+const setupRaw = ref<string | null>(null);
 const loading = ref(false);
 
 async function refresh() {
@@ -20,6 +25,7 @@ async function openSession(s: SessionDto) {
   selected.value = s;
   loading.value = true;
   detail.value = "";
+  setupRaw.value = null;
   try {
     const md = await api.exportSession(s.id);
     if (selected.value?.id !== s.id) return; // a newer selection superseded this one
@@ -30,6 +36,23 @@ async function openSession(s: SessionDto) {
   } finally {
     if (selected.value?.id === s.id) loading.value = false;
   }
+  try {
+    const raw = isTauri() ? await api.getSessionSetup(s.id) : null;
+    if (selected.value?.id !== s.id) return; // a newer selection superseded this one
+    setupRaw.value = raw;
+  } catch {
+    if (selected.value?.id !== s.id) return;
+    setupRaw.value = null;
+  }
+}
+
+function cloneAsNew() {
+  if (!setupRaw.value) return;
+  try {
+    const snap = JSON.parse(setupRaw.value) as SetupSnapshot;
+    store.hydrateSetup(snap, { problem: true }); // load problem + roster into the setup editor
+    open.value = false; // dialog only opens from the setup phase, so we land back on setup
+  } catch { /* corrupt snapshot — leave the editor untouched */ }
 }
 
 // Refresh the list each time the dialog opens; reset the detail pane.
@@ -62,7 +85,13 @@ function fmt(ts: number): string { return new Date(ts).toLocaleString(); }
         <div class="max-h-[60vh] overflow-y-auto">
           <p v-if="!selected" class="font-mono text-[11px] text-fg-faint">Select a session to review it.</p>
           <p v-else-if="loading" class="font-mono text-[11px] text-fg-faint">Loading…</p>
-          <StreamMarkdown v-else :text="detail" />
+          <template v-else>
+            <div class="mb-3 flex items-center gap-3">
+              <Button size="sm" variant="outline" class="border-consensus/45 text-consensus" :disabled="!setupRaw" @click="cloneAsNew">Start new from this</Button>
+              <span v-if="!setupRaw" class="font-mono text-[10px] text-fg-faint">setup not captured for this session</span>
+            </div>
+            <StreamMarkdown :text="detail" />
+          </template>
         </div>
       </div>
     </DialogScrollContent>
