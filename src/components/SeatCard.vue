@@ -30,7 +30,7 @@ const { pinned, onScroll } = useStickToBottom(scroller, () => `${revealed.value.
   <article :id="`seat-${index + 1}`" :data-seat-index="index" tabindex="-1" class="terminal-panel rise flex min-h-[12rem] min-w-0 flex-col overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-signal" :class="[live?.status === 'stance' ? 'border-consensus latch' : live?.status === 'abstained' ? 'border-deadlock' : live?.status === 'streaming' ? 'border-signal' : '', live?.streamIncomplete ? 'shake' : '']" :style="{ '--rise-delay': `${index * 45}ms` }">
     <header class="flex items-center justify-between gap-2 border-b border-line bg-bg-deep/40 px-3 py-2">
       <div class="min-w-0">
-        <div class="flex min-w-0 items-baseline"><span class="mr-2 shrink-0 font-mono text-[11px] text-signal">{{ String(index + 1).padStart(2, '0') }}</span><span class="truncate font-display text-[15px] text-foreground">{{ seat.display_name }}</span></div>
+        <div class="flex min-w-0 items-baseline"><span class="mr-2 shrink-0 font-mono text-[11px] text-signal glow-text">[ CH{{ String(index + 1).padStart(2, '0') }} ]</span><span class="truncate font-sans text-[14px] tracking-wide text-foreground">{{ seat.display_name }}</span></div>
         <p v-if="identity" class="mt-0.5 truncate pl-7 font-mono text-[9px] text-fg-faint">{{ identity }}</p>
       </div>
       <span class="shrink-0 font-mono text-[9px]" :class="state[1]">{{ state[0] }}</span>
