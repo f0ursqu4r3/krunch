@@ -73,14 +73,14 @@ optional personas, and an opaque credential reference (see
 
 ```mermaid
 flowchart TD
-    A["Panelists respond concurrently<br/>(prose + fenced JSON stance)"] --> B["Consensus guard<br/>reciprocal-agreement graph"]
+    A["Panelists respond concurrently<br/>prose + fenced JSON stance"] --> B["Consensus guard<br/>reciprocal-agreement graph"]
     B --> C{"Mediator ruling"}
-    C -->|CONSENSUS<br/>(guard-approved)| D["Finalize → Converged"]
-    C -->|CONTINUE<br/>under round cap| E["Next round"]
-    C -->|CONTINUE<br/>at round cap| F["Finalize → Deadlocked"]
-    C -->|DEADLOCK| F
+    C -->|"CONSENSUS — guard-approved"| D["Finalize: Converged"]
+    C -->|"CONTINUE — under round cap"| E["Next round"]
+    C -->|"CONTINUE — at round cap"| F["Finalize: Deadlocked"]
+    C -->|"DEADLOCK"| F
     E --> A
-    D --> V["Verdict<br/>(decoded transmission)"]
+    D --> V["Verdict<br/>decoded transmission"]
     F --> V
 ```
 
